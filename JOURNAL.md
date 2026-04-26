@@ -171,6 +171,76 @@ Free reste 1er du panel (sans engagement + Wi-Fi 7 + débit honnête + prix méd
 **Dette technique identifiée — `setup_fee_waived` (Phase 2C)**
 Le `setup_fee` est fixé à 48 € pour les Bbox FTTH (tarif officiel) même si la promo en cours offre les frais de mise en service. Le schéma BDD actuel ne distingue pas tarif officiel vs offre commerciale. **À résoudre en Phase 2C** : ajouter une colonne `setup_fee_waived BOOLEAN DEFAULT FALSE` (ou `setup_fee_promo DECIMAL(6,2) NULL`) dans la table `offers`, avec mise à jour du scraper Bouygues pour la peupler depuis la liste des promos détectées dans le store Next.js.
 
+### 2026-04-26 — Tâche 2A.7 — Scraper Orange (clôture ingestion)
+
+**Stratégie d'extraction** — la voie la plus propre des 4 scrapers Phase 2A.
+La page `boutique.orange.fr/internet/offres-fibre` n'expose ni JSON-LD Product (uniquement des microdata `schema.org/FAQPage` orientées SAV) ni de store Next.js. **Mais** un script inline contient `const dto = {...};` (~104 KB), un objet **JSON natif** parseable directement par `json.loads`. Le DTO contient tous les champs structurés requis :
+- `dto.offers[*].name`, `offerSeoId`
+- `price.{price, initialPrice, duration, priceDetails}`
+- `attributes[*].description` : débits ("↓ 8 Gbit/s ↑ 8 Gbit/s"), Wi-Fi ("Livebox 7 : Wifi 7 + 3 Répéteurs"), TV ("200 chaînes TV", "Décodeur TV 6")
+- `banner` : "Exclu web : 49€ de frais de mise en service offerts"
+
+Aucun hardcoding en dehors de la constante `SETUP_FEE_FTTH_LIVEBOX = 49.0` (extraite du banner).
+
+**Règle de scope du panel — formalisée** *(s'applique aux 4 opérateurs)*
+
+> Sont exclues du panel les offres **conditionnées** (étudiants, séries promo limitées, bundles redondants). Le panel reflète le catalogue commercial standard accessible à tout consommateur.
+
+Cette règle a été appliquée rétroactivement et explicitement à chaque opérateur :
+- **Free** : 1 seule offre (Pop), pas d'exclusion.
+- **SFR** : Starter et Power S exclues (débits ambigus, choix qualité > quantité).
+- **Bouygues** : variantes Banque (services bancaires inclus), Gaming (bundle spécifique), Smart TV (bundle redondant) et boxes 4G/5G (technologies hors fibre) exclues.
+- **Orange** : Série Spéciale Lite (promo limitée temporellement), Cheat_Code 18-26 (ciblage étudiant), 4 variantes "+ Smart TV" (bundles redondants).
+
+**3 offres Orange fibre upsertées**
+
+| Offre | `monthly_price` | `promo_price` (durée) | Engagement | ↓ / ↑ Mbps | Wi-Fi |
+|---|:-:|:-:|:-:|:-:|:-:|
+| Livebox Classic Fibre | 42,99 € | 29,99 € (12 mois) | 12 mois | 2000 / 800 | Wi-Fi 7 |
+| Livebox Up Fibre | 51,99 € | 39,99 € (12 mois) | 12 mois | 8000 / 8000 | Wi-Fi 7 |
+| Livebox Max Fibre | 57,99 € | 47,99 € (12 mois) | 12 mois | 8000 / 8000 | Wi-Fi 7 |
+
+Note : Up et Max partagent les mêmes débits (8 Gbit/s symétriques, Livebox 7 Wi-Fi 7) — la différence commerciale Orange porte sur les services (1 vs 3 répéteurs Wi-Fi 7, 1 vs 2 décodeurs TV), pas sur le débit. Donnée brute extraite, fidèle au DTO Orange.
+
+**Panel complet Phase 2A — instantané 9 offres, scores DESC**
+
+| # | Opérateur | Offre | Prix mensuel | Promo | Engagement | ↓ Mbps | Wi-Fi | **Score** |
+|---:|---|---|:-:|:-:|:-:|:-:|---|:-:|
+| 1 | SFR | SFR Fibre Premium | 45,99 € | — | 0 | 8000 | Wi-Fi 7 | **5.8** |
+| 2 | Free | Freebox Pop | 39,99 € | 29,99 € | 0 | 5000 | Wi-Fi 7 | **5.7** |
+| 3 | Bouygues | Bbox Ultym | 49,99 € | 42,99 € | 12 | 8000 | Wi-Fi 7 | **5.7** |
+| 4 | Bouygues | Bbox Fit | 34,99 € | 27,99 € | 12 | 1000 | Wi-Fi 6 | **5.2** |
+| 5 | Bouygues | Bbox Must | 40,99 € | 33,99 € | 12 | 2000 | Wi-Fi 7 | **4.9** |
+| 6 | Orange | Livebox Up Fibre | 51,99 € | 39,99 € | 12 | 8000 | Wi-Fi 7 | **4.4** |
+| 7 | SFR | SFR Fibre Power | 36,99 € | — | 12 | 1000 | Wi-Fi 6 | **3.7** |
+| 8 | Orange | Livebox Classic Fibre | 42,99 € | 29,99 € | 12 | 2000 | Wi-Fi 7 | **3.6** |
+| 9 | Orange | Livebox Max Fibre | 57,99 € | 47,99 € | 12 | 8000 | Wi-Fi 7 | **3.5** |
+
+Lecture du panel :
+- **Top 3 ex-aequo proche** : SFR Premium (5.8) bénéficie du débit max + sans engagement, Free (5.7) du Wi-Fi 7 + sans engagement à prix médian, Bbox Ultym (5.7) du débit max malgré engagement 12 mois.
+- **Bbox Fit en 4e position** confirme l'observation 2A.6 : prix bas suffit à porter une offre techniquement modeste.
+- **Livebox Max dernière (3.5)** : pénalisée par le prix le plus haut du panel + engagement, malgré son débit max — la formule sanctionne fortement le rapport prix/avantages quand l'engagement compense pas.
+
+**Synthèse comparée des 4 stratégies d'extraction Phase 2A**
+
+| Opérateur | Source | Format | Hardcoding |
+|---|---|---|---|
+| Free | HTML brut Tailwind | regex | ✅ aucun |
+| SFR | Mentions légales + KNOWN_OFFERS | regex + dict en dur | ⚠️ débits hardcodés (dette 2C) |
+| Bouygues | Store Next.js (encoded) | regex sur JSON Next-encodé | ✅ aucun |
+| Orange | DTO `const dto = {...}` natif | `json.loads` direct | ✅ aucun |
+
+**Note de clôture — fin de la phase d'ingestion multi-opérateurs**
+
+La Tâche 2A.7 termine la phase d'ingestion multi-opérateurs. **9 offres fibre sur 4 opérateurs** sont désormais en BDD avec scores composites recalculés sur le marché réel.
+
+Prochaines tâches Phase 2A :
+- **2A.3** : refonte `results.php` — grille responsive, filtres GET (operator, type, max_price, sort), pagination.
+- **2A.4** : endpoints API enrichis — `/api/operators`, filtres + pagination sur `/api/offers`.
+- **2A.8** : historique de prix (`prices_history` exploité, mini-graphique sur `offer.php`).
+- **2A.9** : `about.php` — méthodologie du score, sources, fréquence.
+- **2A.10** : polish + tag `v0.2.0a-phase2a`.
+
 ---
 
 ## Phase 1 — Walking skeleton
