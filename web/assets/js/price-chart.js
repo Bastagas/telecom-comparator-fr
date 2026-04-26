@@ -75,7 +75,8 @@
           ticks: {
             color: ink3,
             font: { size: 11 },
-            callback: v => v.toFixed(0) + ' €',
+            stepSize: 0.5,
+            callback: v => v.toFixed(2).replace('.', ',') + ' €',
           },
           grid: { color: border },
         }
