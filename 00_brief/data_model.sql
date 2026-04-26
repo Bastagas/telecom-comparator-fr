@@ -38,6 +38,7 @@ CREATE TABLE operators (
 
 -- =====================================================================
 -- TABLE : communes (référentiel INSEE — Phase 2 ARCEP, Phase 3 carte)
+-- Refonte 2B.1.1 (2026-04-26) : ajout locaux_total + imported_at
 -- =====================================================================
 CREATE TABLE communes (
   code_insee   VARCHAR(5) PRIMARY KEY,         -- code INSEE 5 caractères
@@ -45,9 +46,11 @@ CREATE TABLE communes (
   postal_code  VARCHAR(5) NOT NULL,
   department   VARCHAR(3) NOT NULL,            -- code département INSEE (01-95, 971...)
   region       VARCHAR(50),
+  locaux_total INT NULL,                       -- nb total de locaux (publié par ARCEP, baseline du taux)
   population   INT NULL,
   lat          DECIMAL(10,7) NULL,             -- latitude centroïde (Phase 3)
   lng          DECIMAL(10,7) NULL,             -- longitude centroïde (Phase 3)
+  imported_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
   INDEX idx_postal (postal_code),
   INDEX idx_department (department),
@@ -145,6 +148,9 @@ CREATE TABLE offer_options (
 
 -- =====================================================================
 -- TABLE : coverage_mobile (Phase 2 — données ARCEP "Mon Réseau Mobile")
+-- Aligné 2B.1.1 (2026-04-26) : captured_at → imported_at, fk_cm_operator
+-- ON DELETE CASCADE → RESTRICT (cohérence cross-table). Refonte complète
+-- prévue en 2B.2 quand le mobile entrera en scope.
 -- =====================================================================
 CREATE TABLE coverage_mobile (
   id                   INT AUTO_INCREMENT PRIMARY KEY,
@@ -156,12 +162,12 @@ CREATE TABLE coverage_mobile (
   coverage_5g_quality  ENUM('none', 'limited', 'good', 'very_good') DEFAULT 'none',
   has_5g_3500mhz       BOOLEAN DEFAULT FALSE,        -- 5G "premium" bande 3.5 GHz (n78)
   data_source          VARCHAR(100),                  -- ex: "ARCEP MRM 2026-Q1"
-  captured_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  imported_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
   UNIQUE KEY uk_commune_operator (code_insee, operator_id),
 
   CONSTRAINT fk_cm_commune FOREIGN KEY (code_insee) REFERENCES communes(code_insee) ON DELETE CASCADE,
-  CONSTRAINT fk_cm_operator FOREIGN KEY (operator_id) REFERENCES operators(id) ON DELETE CASCADE,
+  CONSTRAINT fk_cm_operator FOREIGN KEY (operator_id) REFERENCES operators(id) ON DELETE RESTRICT,
 
   INDEX idx_cm_commune (code_insee),
   INDEX idx_cm_operator (operator_id)
@@ -169,22 +175,45 @@ CREATE TABLE coverage_mobile (
 
 -- =====================================================================
 -- TABLE : coverage_fibre (Phase 2 — Observatoire THD ARCEP)
+-- Refonte 2B.1.1 (2026-04-26) :
+--   - DROP locaux_raccordables / pct_couverture / data_source
+--   - ADD locaux_raccordables_ftth, _thd, locaux_eligibles_total,
+--     taux_fibre, source_millesime, source_url, operator_id_key (STORED)
+--   - RENAME captured_at → imported_at
+--   - UNIQUE (code_insee, operator_id_key, source_millesime) pour
+--     idempotence import (operator_id_key = IFNULL(operator_id, 0)
+--     contourne le NULL distinct de MySQL)
+--   - fk_cf_operator ON DELETE CASCADE → RESTRICT (requis par MySQL
+--     pour stored generated column + plus juste sémantiquement)
+-- Note : `locaux_total` est conservé pour compat ; il fait doublon avec
+-- communes.locaux_total et sera nettoyé en 2B.2 ou ultérieurement.
 -- =====================================================================
 CREATE TABLE coverage_fibre (
-  id                    INT AUTO_INCREMENT PRIMARY KEY,
-  code_insee            VARCHAR(5) NOT NULL,
-  operator_id           INT NULL,                     -- NULL = données agrégées
-  locaux_total          INT,
-  locaux_raccordables   INT,
-  pct_couverture        DECIMAL(5,2),                 -- % de locaux raccordables
-  data_source           VARCHAR(100),                 -- ex: "ARCEP THD 2026-Q1"
-  captured_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  id                        INT AUTO_INCREMENT PRIMARY KEY,
+  code_insee                VARCHAR(5) NOT NULL,
+  operator_id               INT NULL,                     -- NULL = données agrégées tous opérateurs
+  locaux_total              INT NULL,                     -- (legacy, à nettoyer ; voir communes.locaux_total)
+  locaux_raccordables_ftth  INT NULL,                     -- locaux raccordables FTTH pur (vocabulaire ARCEP)
+  locaux_raccordables_thd   INT NULL,                     -- locaux raccordables THD ≥ 100 Mb/s (FTTH + DOCSIS)
+  locaux_eligibles_total    INT NULL,                     -- total éligibles toutes technos
+  taux_fibre                DECIMAL(5,2) NULL,            -- locaux_raccordables_ftth / communes.locaux_total * 100
+  source_millesime          VARCHAR(10) NOT NULL DEFAULT '', -- ex: '2025_T4'
+  source_url                TEXT NULL,                    -- URL exacte du CSV ARCEP source
+  imported_at               TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  -- Generated column STORED — contourne le NULL distinct de MySQL
+  -- pour permettre l'UNIQUE sur les lignes agrégées (operator_id IS NULL).
+  -- Requiert fk_cf_operator en RESTRICT (pas CASCADE) — règle MySQL 8.
+  operator_id_key           INT GENERATED ALWAYS AS (IFNULL(operator_id, 0)) STORED NOT NULL,
+
+  UNIQUE KEY uniq_commune_op_millesime (code_insee, operator_id_key, source_millesime),
 
   CONSTRAINT fk_cf_commune FOREIGN KEY (code_insee) REFERENCES communes(code_insee) ON DELETE CASCADE,
-  CONSTRAINT fk_cf_operator FOREIGN KEY (operator_id) REFERENCES operators(id) ON DELETE CASCADE,
+  CONSTRAINT fk_cf_operator FOREIGN KEY (operator_id) REFERENCES operators(id) ON DELETE RESTRICT,
 
   INDEX idx_cf_commune (code_insee),
-  INDEX idx_cf_operator (operator_id)
+  INDEX idx_cf_operator (operator_id),
+  INDEX idx_taux_fibre (taux_fibre)
 ) ENGINE=InnoDB;
 
 -- =====================================================================
