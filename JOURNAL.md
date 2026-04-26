@@ -416,6 +416,65 @@ Cette logique évite la saturation si on scrape plusieurs fois par jour sans cha
 
 ---
 
+### 2026-04-26 — Tâche 2A.10 — Polish + clôture Phase 2A
+
+> 🟢 **PHASE 2A CLOSE — Tag `v0.2.0a-phase2a`**
+
+**Quatre fixes cosmétiques**
+
+1. **Alignement vertical des CTAs** (`components.css`) — sur la grille 3 colonnes de `results.php`, certaines cartes (SFR Premium, SFR Power) n'ont pas de bloc promo et sont donc plus courtes que les autres. Conséquence : le bouton « Voir le détail » se retrouvait à des hauteurs différentes selon la rangée. Fix scopé : `.offer-card > .btn-primary { margin-top: auto; }`. La carte étant déjà en `flex-direction: column`, le `auto` pousse le CTA en bas, peu importe le contenu intermédiaire. Vérifié avec Chrome headless 1280×2200 : 6 cartes en 3×2, tous les CTAs alignés sur deux rangées propres.
+
+2. **Format axe Y du graphique** (`price-chart.js`) — Chart.js arrondissait les ticks à l'entier (« 40 € / 40 € / 40 € »). Ajout de `scales.y.ticks.stepSize: 0.5` + callback `v.toFixed(2).replace('.', ',') + ' €'` pour cohérence avec le tooltip déjà en virgule française. L'axe affiche désormais « 38,50 € / 39,00 € / 39,50 € … ».
+
+3. **Audit console PHP + JS** sur 6 variantes d'URL (index, results, results filtré, offer/1, offer/999, about). Méthode : exécution isolée de chaque page via PHP CLI 8.4 avec `display_errors=1 error_reporting=E_ALL`, capture stdout+stderr, grep des marqueurs `Notice|Warning|Fatal|Deprecated`. Côté JS : Chrome headless `--enable-logging` sur les 6 mêmes URLs, grep des erreurs JS pertinentes. Résultat : **aucune erreur, aucun notice, aucun warning**. Aucun fix nécessaire — la base est saine.
+
+4. **README enrichi** — pitch mis à jour pour refléter le scope Phase 2A (4 opérateurs fibre, score composite, API REST, site responsive ; ARCEP en 2B). Statut passé en « 🟢 Phase 1 close · 🟢 Phase 2A close · 🟡 Phase 2B à venir ». Nouvelle section **Captures** avec 3 hero shots (`docs/screenshots/{results,offer-detail,about}.png`). Nouvelle section **Roadmap** avec les 5 phases. Ajout d'`about.php` dans la table des URLs MAMP.
+
+**Bilan technique Phase 2A**
+
+Phase 2A close après 39 commits depuis le tag `v0.1.0-phase1`. Réparti par préfixe :
+- 11 `docs` (entrées JOURNAL granulaires + README)
+- 10 `feat(scraper)` (BaseScraper, scoring, 3 nouveaux scrapers, seed historique)
+- 8 `feat(web)` (results refonte, CSS responsive, fiche detail enrichie, page about)
+- 4 `feat(api)` (filtres, pagination, validation, endpoint price_history)
+- 3 `refactor(scraper)` (BaseScraper extrait, scoring extrait, free.py migré)
+- 2 `docs(scraper)` (clarifications)
+- 1 `fix(db)` (colonne `is_simulated`)
+
+**Livrables finaux Phase 2A**
+- 4 pages PHP responsives Direction C (index, results, offer, about)
+- 4 opérateurs scrapés, 9 offres fibre actives en BDD
+- 4 patterns d'extraction défendables : regex Tailwind (Free), regex sur mentions légales + KNOWN_OFFERS (SFR), store Next.js (Bouygues), JSON natif `const dto = {...}` (Orange)
+- Score composite à 6 variables (35/25/15/10/10/5 %), fallback neutre 7,5/10 anti-saut
+- 3 endpoints API REST avec filtres + pagination + validation 400
+- Historique de prix (table alimentée par pipeline + seed démo de 30 jours, graphique Chart.js)
+- Page méthodologie publique avec sources + limites assumées
+- JOURNAL de bord complet (10 entrées Phase 2A)
+
+**Ce qui a marché**
+- Le **STOP-sondage-checkpoint** systématique avant chaque scraper. Premier scout 2A.0 a partiellement échoué (annonçait JSON-LD pour SFR/Orange alors que c'était autre chose), mais le sondage en début de tâche a permis de redresser à chaque fois sans coût.
+- La **séparation `is_simulated`** sur les points d'historique : permet de mélanger seed démo et collecte réelle sans tromper, et le disclaimer disparaît automatiquement quand la part simulée descend.
+- Le pattern **`fix(db)` séparé du `feat`** appliqué dès 2A.8 (correction de la 2A.2 prise en note).
+- La **rebase non-interactive** (GIT_EDITOR/GIT_SEQUENCE_EDITOR avec `cp` ou `sed`) pour reword un commit dont le titre mentait. Méthode propre, branche backup créée puis supprimée.
+
+**Dette technique reconnue (Phase 2C)**
+- `KNOWN_OFFERS` hardcodés pour SFR (mapping name→price/promo en dur, justifié par la complexité du DOM SFR).
+- Débits hardcodés pour certaines offres SFR (le scout n'a pas trouvé de source DOM stable).
+- Pas de tests automatisés (ni unitaires, ni E2E). À ajouter en Phase 2C avec pytest + un harness PHP minimal.
+- `setup_fee_waived` non modélisé (boolean « offert pendant la promo »).
+- Pas de Docker compose : MAMP en dev, à containeriser en 2C pour la portabilité.
+
+**Préparation Phase 2B**
+- Point d'entrée ARCEP identifié : `data.arcep.fr` (Mon Réseau Mobile + Observatoire Très Haut Débit).
+- Schéma BDD à étendre : tables `coverage_mobile` et `coverage_fibre` indexées par `commune_insee × operator`.
+- Endpoints à créer : `/api/coverage?commune=…&operator=…` et `/api/communes/search?q=…`.
+- Mobile à scraper : forfaits Orange, SFR, Bouygues, Free + MVNOs principaux (B&You, Sosh, RED, Free 5G).
+- Score composite à recalibrer : ajout d'une 7ᵉ variable « qualité réseau » basée sur les notes ARCEP, repondération de l'ensemble (annoncé sur `about.php`).
+
+**Tag** — `git tag -a v0.2.0a-phase2a` avec message multi-lignes (4 patterns d'extraction, 6-variable score, 3 endpoints, 4 pages, historique des prix, méthodologie publique, JOURNAL ~10 entrées).
+
+---
+
 ## Phase 1 — Walking skeleton
 
 ### 2026-04-26 — Tâche 1.2 — Scraper Free Pop
