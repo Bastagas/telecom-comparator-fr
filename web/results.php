@@ -61,6 +61,14 @@ function fmt_price(float $price): string {
 function e(string $s): string {
     return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 }
+function type_label(string $type): string {
+    return match ($type) {
+        'fibre'  => 'Fibre',
+        'mobile' => 'Mobile',
+        'bundle' => 'Bundle',
+        default  => $type,
+    };
+}
 ?><!doctype html>
 <html lang="fr">
 <head>
@@ -139,9 +147,7 @@ function e(string $s): string {
             <article class="offer-card" tabindex="0" data-score="<?= e((string)$scorePct) ?>">
                 <header class="offer-card__head">
                     <span class="t-caption"><?= e(strtoupper((string)$offer['operator_name'])) ?></span>
-                    <?php if ($hasPromo && $savings > 0): ?>
-                        <span class="acid-pill">Économisez <?= fmt_price($savings) ?>/mois</span>
-                    <?php endif; ?>
+                    <span class="badge badge--type"><?= e(type_label($offer['type'])) ?></span>
                 </header>
 
                 <h2 class="t-h1 offer-card__name"><?= e($offer['name']) ?></h2>

@@ -67,6 +67,20 @@
   background: var(--bg);
 }
 
+/* Type d'offre dans le header de la carte — accent teal discret pour
+   différencier des badges techniques du corps de la carte. */
+.badge.badge--type {
+  height: 22px;
+  padding: 0 var(--sp-2);
+  background: var(--teal-bg);
+  color: var(--teal-h);
+  border-color: transparent;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 /* ─────────────────────────────────────────────
    Bloc prix
    ─────────────────────────────────────────── */
