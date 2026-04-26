@@ -352,6 +352,40 @@ S'ajoutent à `operator`, `type`, `max_price` déjà présents. Le tri par défa
 - `GET /api/communes/search?q=Mont` (autocomplete commune par nom/code postal).
 - L'architecture du parsing/validation actuel sera factorisée si nécessaire (helpers `_parse_*` réutilisables).
 
+### 2026-04-26 — Tâche 2A.8 — Historique des prix
+
+**Constat de départ** — table `prices_history` créée en Phase 1 mais **vide** : le pipeline ne l'alimentait pas. Pas de graphique présentable. Deux livrables en parallèle pour résoudre ça : alimentation réelle (point persistant pour la suite) **et** seed de démo (graphique présentable dès maintenant, transparence assumée).
+
+**Schéma** — colonne `is_simulated BOOLEAN DEFAULT FALSE NOT NULL` ajoutée à `prices_history` (commit `fix(db)` séparé). Distingue les points de démo (TRUE, du seed) des points de collecte automatisée (FALSE, du pipeline). `data_model.sql` synchronisé.
+
+**Pipeline — collecte réelle (`scraper/db.py`)**
+Après chaque upsert d'offre, on enregistre une ligne dans `prices_history` (is_simulated=FALSE) si :
+1. aucun point réel n'existe encore pour cette offre, OU
+2. le prix mensuel diffère du dernier point réel, OU
+3. le dernier point réel date de plus de 24 h.
+
+Cette logique évite la saturation si on scrape plusieurs fois par jour sans changement, tout en garantissant des points réguliers (au moins un par jour). Les points simulés sont ignorés dans la condition (sinon le seed masquerait des changements réels).
+
+**Seed de démo (`scraper/seed_price_history.py`)**
+- 30 entrées rétroactives (J-30 → J-1) par offre active, avec `is_simulated=TRUE`.
+- Variation crédible **par marches de 3-7 jours** (campagnes tarifaires plausibles), ±3 % autour du prix de base. **Pas du bruit aléatoire** désordonné — il faut que ça ressemble à un vrai historique commercial.
+- Dernier point simulé (J-1) calé proche du prix actuel pour la **continuité visuelle** avec le point réel du jour.
+- RNG seedé (`RNG_SEED = 42`) → séries déterministes reproductibles.
+- **Idempotence** : `DELETE WHERE is_simulated=TRUE` avant ré-insertion. Les points réels ne sont JAMAIS touchés.
+- Premier run : 270 lignes simulées (30 × 9 offres).
+
+**Endpoint API étendu**
+`GET /api/offers/<id>` renvoie désormais `price_history: [{price, captured_at, is_simulated}]` ordonné chronologiquement, dernier point en dernier. Le client peut choisir d'afficher un disclaimer si au moins un point est simulé. Test : Free Pop renvoie 31 points (30 simulés + 1 réel).
+
+**Front — `offer.php`**
+- Bloc "Évolution du prix" avant les "Spécifications techniques".
+- Mini-graphique linéaire **Chart.js 4.4** (CDN UMD, ~70 KB), 200 px de haut, ligne `var(--teal)` avec fill 8 % d'opacité, courbe tendue (tension 0.3), pas de point visible sauf au hover.
+- **Disclaimer** sous le graphique si au moins un point est `is_simulated`: *"Historique reconstitué à partir de données de démonstration. La collecte automatisée alimentera ce graphique avec des données réelles à partir du JJ/MM/AAAA."* — transparence assumée vis-à-vis du jury.
+- Cas extrême : si < 5 points → message *"Historique en cours de constitution. Revenez dans quelques jours."*
+- Chart.js + price-chart.js sont inclus **uniquement** sur offer.php (les autres pages ne paient pas le coût).
+
+**Trajectoire** — d'ici quelques jours/semaines de scrape automatisé, la part de points réels va croître. La condition `is_simulated` côté affichage permettra de retirer le disclaimer lorsque la majorité des points seront réels (logique à raffiner Phase 2C).
+
 ---
 
 ## Phase 1 — Walking skeleton
