@@ -211,6 +211,56 @@ Les loaders partagent : URL constante (`ARCEP_DATASET_URL`), millésime (`ARCEP_
 
 ---
 
+### 2026-04-26 — Tâche 2B.1.4 — Endpoint API /api/communes/search
+
+**Objectif** — premier endpoint d'exposition des données ARCEP. Sera consommé en 2B.1.6 par un autocomplete dans `offer.php` (ou ailleurs). Cible UX : résultats pertinents en < 100 ms.
+
+**3 décisions de design**
+
+1. **Recherche par nom uniquement** (option α). `postal_code` est NULL en 2B.1 (CSV ARCEP ne le fournit pas), recherche par CP impossible. Code INSEE non grand public, hors scope autocomplete. ~95 % des cas d'usage couverts par une recherche par nom.
+2. **`LIKE 'q%'`** (préfixe) plutôt que `LIKE '%q%'` (anywhere). Bénéfice double : (a) l'index `idx_name` (BTREE) est utilisable en préfixe seulement — performance bien meilleure ; (b) résultats plus pertinents (un user qui tape `cou` cherche probablement Courbevoie, pas Maisons-Cou*chy*).
+3. **Tri secondaire `locaux_total DESC`** : les grandes communes apparaissent d'abord. Sur `q=paris&limit=5`, on récupère les 5 arrondissements parisiens les plus peuplés (15e=184k locaux, 18e, 16e, 17e, 20e), pas un Paris-d'Albret obscur. Désambiguïsation visuelle via `display_name = "Nom (département)"` pour les homonymes (Saint-Just dans 34/42/43/60/...).
+
+**Validation des params (cohérent FilterError 2A.4)**
+
+- `q` requis, **min 2 chars** (anti-spam, anti-N+1 sur 1 char qui retournerait des dizaines de milliers), **max 100 chars** (anti-DoS).
+- `limit` optionnel, default 10, max 50, validation int strict.
+- Échappement explicite des wildcards SQL (`%`, `_`, `\`) dans la valeur user via un helper `_escape_like()` — un user qui tape littéralement `cou%` ne doit pas obtenir un comportement wildcard.
+- Bindings paramétrés (cohérent avec le pattern de l'API Phase 2A) — pas de concaténation SQL.
+
+**Tests curl — 6 cas couverts**
+
+1. `q=cou` → 200, 10 communes commençant par "Cou", **Courbevoie 56 529 locaux d'abord** (tri par taille).
+2. `q=paris&limit=5` → 200, 5 arrondissements parisiens triés par locaux décroissants (15e=184k, 18e=148k, 16e=145k, 17e=139k, 20e=126k).
+3. `q=saint-just` → 200, 10 résultats d'**homonymes désambiguïsés** via `display_name` (« Saint-Just-Saint-Rambert (42) », « Saint-Just-en-Chaussée (60) », « Saint-Just-Malmont (43) », « Saint-Just (34) »…).
+4. `q=z` → 400, `Query must be at least 2 characters`.
+5. `limit=200` → 400, `Parameter 'limit' must be between 1 and 50`.
+6. `q=xyzzz` → 200 avec `data=[]`, `count=0` (cas limite propre, pas d'erreur).
+
+**Performance mesurée**
+
+```
+q=cou               20.6 ms (5 mesures, écart 19-21 ms)
+q=paris&limit=5     19.7 ms (3 mesures)
+q=saint-just        ~22 ms
+```
+
+**~20 ms par requête**, **5× sous la cible 100 ms**. L'index BTREE `idx_name` (existant depuis Phase 1) fait son travail — la recherche par préfixe est seek+scan court, pas un full table scan sur les 34 919 lignes. Aucun index supplémentaire à créer.
+
+**Architecture du endpoint**
+
+Suivi du pattern API Phase 2A :
+- Helper `_validate_communes_search_params()` qui lève `FilterError` (gérée par l'errorhandler global → 400 JSON).
+- Helper `_escape_like()` pour la sécurité SQL.
+- Route Flask `@app.get("/api/communes/search")`, requête SQL minimale (`SELECT … WHERE name LIKE … ORDER BY … LIMIT …`).
+- Réponse enveloppée `{data, query, count}` — cohérente avec `/api/offers` qui utilise aussi un envelope `{data, pagination, …}`.
+
+**Prochaines tâches**
+- **2B.1.5** : `GET /api/coverage?commune=<insee>` — lit `coverage_fibre` + jointure `communes`. Réponse : taux fibre, locaux raccordables, source millésime, classement régional.
+- **2B.1.6** : intégration front. Soit autocomplete dans `offer.php` (bandeau "couverture dans ma commune" sous le score), soit page dédiée `commune.php?insee=…` accessible depuis l'autocomplete.
+
+---
+
 ## Phase 2A — Extension multi-opérateurs
 
 ### 2026-04-26 — Tâche 2A.0 — Scout sites opérateurs
