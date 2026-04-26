@@ -65,6 +65,28 @@ curl -s http://localhost:5001/api/offers/1 | python3 -m json.tool
 curl -i -s http://localhost:5001/api/offers/9999    # → 404 JSON
 ```
 
+### Front PHP via MAMP
+
+L'écran 2 (`results.php`) implémente le design Direction C (cf. `00_brief/dc/`).
+
+**Setup MAMP** — un symlink dans `htdocs` évite de déplacer le projet ou de
+toucher la config Apache partagée :
+
+```bash
+ln -s ~/dev/telecom-comparator-fr/web /Applications/MAMP/htdocs/telecom
+```
+
+Puis dans le navigateur :
+
+```
+http://localhost:8888/telecom/results.php
+```
+
+`index.php` redirige vers `results.php` (Phase 1 : pas encore d'écran d'accueil).
+
+**Filtres GET** (Phase 1, infrastructure prête, peu d'effet avec une seule offre) :
+`?operator=free&type=fibre&max_price=60`.
+
 ## Documentation
 
 Voir `00_brief/PROJECT_BRIEF.md` pour la vue d'ensemble du projet, le phasage et les conventions.

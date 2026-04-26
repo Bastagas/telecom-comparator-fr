@@ -43,3 +43,27 @@
 
 **Limitations Phase 1**
 - Pas de filtres (`operator`, `type`, `max_price`, `sort`), pas de pagination, pas d'endpoints `/api/operators`, `/api/coverage`, `/api/communes/search`. Tout cela en Phase 2.
+
+### 2026-04-26 — Tâche 1.3 — Page PHP Direction C
+
+**Livré**
+- `web/results.php` (écran 2) qui consomme la BDD et rend la liste des offres avec la maquette Direction C : carte `.offer-card` avec head (kicker opérateur + acid-pill), nom, badges, bloc prix (promo + prix-barré + acid-pill côte à côte + fineprint), score, bouton primaire teal.
+- 3 fichiers CSS séparés : `tokens.css` (palette, typo, espacements depuis TOKENS.md), `components.css` (offer-card, acid-pill, score-bar, btn-primary, badges), `layout.css` (page chrome, filtres, grille, animations d'entrée).
+- 5 animations conformes à ANIMATIONS.md : #1/#3 pure CSS, #2/#4/#5 armées par `animations.js` via Intersection Observer.
+- `index.php` placeholder (302 → results.php), à remplacer en Phase 2.
+
+**Choix techniques**
+- **PDO** plutôt que mysqli : interface standardisée, bindings préparés, pas de couplage MySQL spécifique. `db.php` expose `get_pdo()` (singleton, charset utf8mb4, ERRMODE_EXCEPTION).
+- **Parser .env maison** (10 lignes) plutôt que `vlucas/phpdotenv` via Composer : aucune dep PHP nécessaire en Phase 1, MAMP exécute le PHP directement. Si on ajoute des libs PHP en Phase 2, on basculera sur Composer et ce parseur disparaîtra. Documenté dans le commentaire d'en-tête de `web/db.php`.
+- **Symlink MAMP** (`htdocs/telecom → ~/dev/.../web`) : pas de déplacement du repo, pas de modification de la conf MAMP partagée. Documenté en README.
+- **Hiérarchie BEM des sous-classes carte** (`offer-card__head`, `__name`, `__price`, `__score`, etc.) : décidée à l'implémentation faute de JSX livrés par Claude Design — à valider en revue design.
+
+**Score NULL en Phase 1**
+- Affichage : "—" en valeur, classe `.score-bar.is-empty` (fond gris uniforme), pas d'animation de fill (le JS ne déclenche le fill que si `data-score > 0`).
+
+**Accessibilité — `prefers-reduced-motion`**
+- Double garde : (a) media query CSS dans `layout.css` qui annule les transitions/keyframes, (b) branche dédiée dans `animations.js` qui rend tout en synchrone. Animations #1 et #3 (feedback essentiel hover/active) conservées comme recommandé par le designer.
+
+**Limitations**
+- 1 seule offre Phase 1, donc filtres testés en infra uniquement. Le tri "score DESC" met les NULL en queue (`ORDER BY (score IS NULL), score DESC`).
+- Pas d'écran offer.php : le bouton "Voir le détail" pointera vers une 404 jusqu'à la Tâche 1.5 / Phase 2.
