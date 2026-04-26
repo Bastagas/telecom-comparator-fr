@@ -1,9 +1,10 @@
-"""API Flask — Phase 2A endpoints enrichis.
+"""API Flask — endpoints Phase 2A + 2B.
 
 Endpoints :
-- GET /api/operators    liste des opérateurs
-- GET /api/offers       liste filtrée + paginée
-- GET /api/offers/<id>  détail d'une offre
+- GET /api/operators           liste des opérateurs
+- GET /api/offers              liste filtrée + paginée
+- GET /api/offers/<id>         détail d'une offre
+- GET /api/communes/search     autocomplete commune par nom (Phase 2B.1.4)
 """
 
 from __future__ import annotations
@@ -387,6 +388,99 @@ def get_offer(offer_id: int):
         ],
     }
     return jsonify(response)
+
+
+# ---------------------------------------------------------------------------
+# Phase 2B.1.4 — autocomplete communes
+# ---------------------------------------------------------------------------
+
+COMMUNES_SEARCH_DEFAULT_LIMIT = 10
+COMMUNES_SEARCH_MAX_LIMIT = 50
+COMMUNES_SEARCH_MIN_QUERY_LEN = 2
+COMMUNES_SEARCH_MAX_QUERY_LEN = 100
+
+
+def _validate_communes_search_params(args):
+    """Valide q + limit pour /api/communes/search. Lève FilterError sur invalid input."""
+    q = (args.get("q") or "").strip()
+    if not q:
+        raise FilterError(
+            f"Query parameter 'q' is required (min {COMMUNES_SEARCH_MIN_QUERY_LEN} characters)"
+        )
+    if len(q) < COMMUNES_SEARCH_MIN_QUERY_LEN:
+        raise FilterError(
+            f"Query must be at least {COMMUNES_SEARCH_MIN_QUERY_LEN} characters"
+        )
+    if len(q) > COMMUNES_SEARCH_MAX_QUERY_LEN:
+        raise FilterError(
+            f"Query must be at most {COMMUNES_SEARCH_MAX_QUERY_LEN} characters"
+        )
+
+    limit_raw = args.get("limit")
+    if limit_raw is None or limit_raw == "":
+        limit = COMMUNES_SEARCH_DEFAULT_LIMIT
+    else:
+        try:
+            limit = int(limit_raw)
+        except (TypeError, ValueError):
+            raise FilterError("Parameter 'limit' must be an integer")
+        if limit < 1 or limit > COMMUNES_SEARCH_MAX_LIMIT:
+            raise FilterError(
+                f"Parameter 'limit' must be between 1 and {COMMUNES_SEARCH_MAX_LIMIT}"
+            )
+
+    return q, limit
+
+
+def _escape_like(s: str) -> str:
+    """Échappe les wildcards SQL dans une chaîne user pour un LIKE.
+
+    `%` et `_` ont une signification spéciale dans LIKE ; un user qui
+    cherche littéralement `cou%` ne doit pas obtenir un comportement
+    wildcard. Le backslash est aussi échappé pour la même raison.
+    """
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+@app.get("/api/communes/search")
+def search_communes():
+    q, limit = _validate_communes_search_params(request.args)
+    q_like = _escape_like(q) + "%"
+
+    conn = get_connection()
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT code_insee, name, department, region, locaux_total
+            FROM communes
+            WHERE name LIKE %(q)s
+            ORDER BY (locaux_total IS NULL), locaux_total DESC, name ASC
+            LIMIT %(limit)s
+            """,
+            {"q": q_like, "limit": limit},
+        )
+        rows = cursor.fetchall()
+    finally:
+        conn.close()
+
+    data = [
+        {
+            "code_insee": r["code_insee"],
+            "name": r["name"],
+            "department": r["department"],
+            "region": r["region"],
+            "locaux_total": r["locaux_total"],
+            "display_name": f"{r['name']} ({r['department']})",
+        }
+        for r in rows
+    ]
+
+    return jsonify({
+        "data": data,
+        "query": q,
+        "count": len(data),
+    })
 
 
 if __name__ == "__main__":
