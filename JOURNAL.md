@@ -388,6 +388,34 @@ Cette logique évite la saturation si on scrape plusieurs fois par jour sans cha
 
 ---
 
+### 2026-04-26 — Tâche 2A.9 — Page méthodologie
+
+**Pourquoi** — un comparateur sans page « comment c'est calculé » est suspect par défaut. Pour un projet de master, la transparence sur la formule, les sources et les limites est aussi importante que le résultat affiché. C'est aussi l'occasion de documenter explicitement la dette technique assumée (KNOWN_OFFERS hardcodés, débits hardcodés, etc.) plutôt que de la laisser implicite.
+
+**Structure de `web/about.php`** — six sections avec ancres pour deep-linking :
+1. **Hero** — titre + intention en une phrase.
+2. **`#scope` — Que fait ce comparateur ?** — périmètre (9 offres fibre Phase 2A, mobile + ARCEP en 2B), cadence de scraping (quotidienne), disclaimer informatif/non contractuel.
+3. **`#score` — Le score composite** — table de pondération (Prix 35 %, Débit 25 %, Options 15 %, Engagement 10 %, Frais 10 %, Bonus techno 5 %), chaque ligne avec une justification courte. Note méthodologique sur le fallback neutre 7,5/10 quand min == max (anti-saut brutal à l'arrivée d'une 2ᵉ offre). Annonce du recalibrage Phase 2B avec la 7ᵉ variable « qualité réseau » ARCEP.
+4. **`#sources`** — liens externes vers les 4 sites opérateurs (sources Phase 2A) + lien data.arcep.fr (source Phase 2B).
+5. **`#limits` — Limites assumées** — 5 limites listées explicitement : données informatives, pas d'éligibilité par adresse, mobile non couvert en 2A, historique en cours de reconstitution, score sur dimensions tarif/technique uniquement.
+6. **`#about` — À propos du projet** — projet de master, stack technique, lien repo, dernière mise à jour des données (lecture `MAX(last_scraped_at)` au runtime).
+
+**Style** — `max-width: 720px` (texte long lecture), `.about-section` avec `scroll-margin-top` pour que les ancres ne soient pas masquées par d'éventuels éléments en haut, `.about-table` en CSS Grid `1fr 80px 2fr` pour la pondération. Encart `.about-note` (fond teal léger + bordure) pour la note méthodologique. Aucun nouveau token Direction C — réutilisation stricte de la palette existante.
+
+**Intégration**
+- `partials/footer.php` — lien « Méthodologie » pointe désormais vers `about.php` (au lieu d'un placeholder `#`). Lien direct « Sources » vers `about.php#sources`. Le placeholder « API » est remplacé par un lien direct vers le repo GitHub (« Code source ↗ »), plus utile pour le jury.
+- `offer.php` — le lien « Comment est calculé ce score ? » sous le score d'une offre pointe désormais vers `about.php#score`. Le clic atterrit directement sur la table de pondération, qui répond à la question.
+
+**Posture jury** — la page est volontairement honnête sur ce qui ne marche pas (« Score sur dimensions tarif/technique uniquement »), sur ce qui est temporaire (« Historique reconstitué », « démarrage 26 avril 2026 ») et sur ce qui viendra (« recalibrage Phase 2B »). Mieux vaut un défaut documenté qu'un défaut découvert pendant la soutenance.
+
+**Commits** — quatre commits granulaires :
+- `feat(web): add methodology and sources page (about.php)` — page + CSS associée
+- `feat(web): activate methodology link in footer` — footer.php (Méthodologie + Sources + Code source)
+- `feat(web): link "score" in offer detail to about page anchor` — offer.php href="#" → href="about.php#score"
+- `docs: journal entry for Phase 2A.9 (about page)` — ce fichier
+
+---
+
 ## Phase 1 — Walking skeleton
 
 ### 2026-04-26 — Tâche 1.2 — Scraper Free Pop
