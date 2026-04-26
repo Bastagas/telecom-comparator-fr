@@ -74,8 +74,9 @@ configurable via la variable `API_PORT` du `.env`.
 - `GET /api/operators` — liste des 4 opérateurs (id, slug, name, website_url).
 - `GET /api/offers` — liste filtrée + paginée (envelope `{data, pagination, filters_applied}`).
 - `GET /api/offers/<id>` — détail d'une offre (specs, options, opérateur). 404 si id inconnu.
+- `GET /api/communes/search` — autocomplete commune par nom (Phase 2B.1.4). Params : `q` (min 2 chars), `limit` (default 10, max 50). Tri par `locaux_total DESC` (grandes villes d'abord), réponse `{data, query, count}`.
 
-Endpoints couverture ARCEP (`/api/coverage`, `/api/communes/search`) : Phase 2B.
+Endpoint couverture ARCEP (`/api/coverage`) : Phase 2B.1.5.
 
 **Query params de `/api/offers`** *(tous optionnels)*
 
@@ -110,6 +111,11 @@ curl -s "http://localhost:5001/api/offers?max_price=40&sort=price_asc&per_page=2
 # Détail d'une offre + erreur 404
 curl -s http://localhost:5001/api/offers/1 | python3 -m json.tool
 curl -i -s http://localhost:5001/api/offers/9999    # → 404 JSON
+
+# Autocomplete commune (Phase 2B.1.4) — 34 919 communes ARCEP indexées
+curl -s "http://localhost:5001/api/communes/search?q=cou" | python3 -m json.tool
+curl -s "http://localhost:5001/api/communes/search?q=paris&limit=5" | python3 -m json.tool
+curl -i -s "http://localhost:5001/api/communes/search?q=z"  # → 400 (min 2 chars)
 
 # Erreurs 400 typiques
 curl -i -s "http://localhost:5001/api/offers?operator=inconnu"   # Unknown operator
