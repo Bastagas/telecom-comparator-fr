@@ -241,6 +241,61 @@ Prochaines tâches Phase 2A :
 - **2A.9** : `about.php` — méthodologie du score, sources, fréquence.
 - **2A.10** : polish + tag `v0.2.0a-phase2a`.
 
+### 2026-04-26 — Tâche 2A.3 — Refonte results.php pour le panel multi-opérateurs
+
+**Contexte** — `results.php` était dimensionné pour 1 offre en Phase 1. Il fonctionnait techniquement avec 9 mais ne valorisait pas le panel : grille en `auto-fill` peu lisible, filtres minimaux, pas de pagination, pas d'indicateur de tri. La 2A.3 livre la fonctionnalité-clé du brief master ("filtres + dropdown + affichage dynamique").
+
+**Grille responsive** — bascule de `repeat(auto-fill, minmax(360px, 1fr))` vers des breakpoints explicites :
+- < 768px (mobile) : 1 colonne
+- ≥ 768px (tablet) : 2 colonnes
+- ≥ 1200px (desktop) : 3 colonnes
+
+Pagination `PER_PAGE = 6` (valorise la grille 3×2 sur desktop, 2 pages bien remplies pour 9 offres).
+
+**Filtres ajoutés**
+| Param GET | Type | SQL |
+|---|---|---|
+| `sort` | enum (score / price_asc / price_desc) | whitelist en PHP, ORDER BY conditionnel |
+| `min_download` | int (Mbps) | `fs.download_mbps >= :min_download` |
+| `has_promo` | checkbox 0/1 | `o.promo_price IS NOT NULL` |
+
+S'ajoutent à `operator`, `type`, `max_price` déjà présents. Le tri par défaut reste `score DESC` avec `(score IS NULL)` en queue (préservé Phase 1).
+
+**Sécurité**
+- Construction du WHERE en tableau + `implode(' AND ')`, **bindings PDO préparés** (`:operator`, `:max_price`, etc.) pour tous les paramètres utilisateur. Aucune concaténation directe.
+- `LIMIT` / `OFFSET` bindés avec `PDO::PARAM_INT` (sinon MySQL les reçoit en string et explose).
+- `sort` validé par whitelist côté PHP avant injection dans `ORDER BY`.
+
+**Header de résultats enrichi**
+- "N résultats" + lien "Réinitialiser les filtres" (visible si au moins un filtre actif).
+- Indicateur "Trié par X" à droite — affichage read-only, le select de tri vit dans le formulaire principal (cohérent avec la contrainte "pas de JavaScript pour les filtres").
+
+**Pagination**
+- Pattern : `COUNT(*)` sur le WHERE filtré → `total_pages` → `SELECT` paginé.
+- Rendu : `← Précédent | Page N / M | Suivant →`. Boutons désactivés visuellement aux extrémités (`pagination__btn--disabled`, `aria-disabled`).
+- Pas de pagination si `total ≤ PER_PAGE`.
+- Les params GET de filtres sont propagés dans les liens via `build_query_string()` pour préserver l'état.
+
+**Préservation**
+- Le partial `offer-card.php` est intact (le design Direction C reste la doctrine).
+- Les animations (fade-in carte, score-bar fill) fonctionnent toujours via `animations.js` Phase 1, sans modification.
+- Tokens CSS (`tokens.css`) inchangés ; ajouts limités à `layout.css` (grid, header, pagination) et `components.css` (checkbox `has_promo`).
+
+**Tests visuels validés (6 scénarios)**
+
+| Scénario | Attendu | Obtenu |
+|---|---|---|
+| Aucun filtre, page 1 | 6 cartes, "9 résultats", pagination active | ✅ |
+| `?operator=free` | 1 carte, pas de pagination, "Réinitialiser" visible | ✅ |
+| `?max_price=40&sort=price_asc` | offres ≤ 40 €/mois triées prix croissant, "Trié par Prix croissant" | ✅ 3 cartes (Bbox Fit / SFR Power / Free Pop) |
+| `?has_promo=1` | offres avec promo uniquement | ✅ 7 résultats (page 1 = 6, page 2 = 1) |
+| `?page=2` | 3 dernières cartes, "Suivant →" désactivé | ✅ |
+| Mobile 375px | grille 1 colonne | ✅ (filtres en 2 col à 375px, acceptable — la grille de résultats reste 1 col) |
+
+**Note** — le brief annonçait "6 offres avec promo" pour le test 4 ; en réalité il y en a 7 dans la BDD courante (Free Pop + Bbox×3 + Livebox×3). Comportement validé sur 7.
+
+**Aucun JavaScript ajouté côté filtres** — toute l'interaction passe par GET params + form submit, conforme au brief master "PHP simple sans framework".
+
 ---
 
 ## Phase 1 — Walking skeleton
