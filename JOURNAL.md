@@ -27,3 +27,19 @@
 **Limitations connues**
 - 1 seul opérateur (Free), 1 seule offre (Pop). La Phase 2 généralise aux 4 opérateurs et à toutes leurs offres fibre/mobile/bundle.
 - Parser regex à durcir en Phase 2 (catalogue de fixtures HTML, tests unitaires, fallback agrégateur si Free change la mise en page).
+
+### 2026-04-26 — Tâche 1.4 — API Flask
+
+**Livré**
+- 2 endpoints : `GET /api/offers` (liste, JOIN operators) et `GET /api/offers/<id>` (détail enrichi avec `pricing`, `specs.fibre`/`specs.mobile`, `options`, opérateur complet, 404 JSON sur id inconnu). Format aligné sur `00_brief/screens.md` Partie 2.
+
+**Choix techniques**
+- `api/db.py` distinct du scraper. L'API n'importe pas `scraper.*`. Découplage des couches : chaque module a ses deps minimales et peut être déployé indépendamment (Docker, prod).
+- `.env` racine partagé scraper + API : credentials BDD identiques, pas de duplication. Port API exposé via `API_PORT` (12-factor).
+
+**Gotcha macOS — port 5000 / AirPlay Receiver**
+- Sur macOS Monterey+, `ControlCenter` (AirPlay Receiver) écoute en `*:5000` (IPv4 + IPv6) et capture les requêtes `localhost:5000` en répondant `403 AirTunes`.
+- Bascule sur **port 5001** (paramétrable via `API_PORT` dans `.env`, défaut 5001). 3 curls validés sur `localhost:5001`.
+
+**Limitations Phase 1**
+- Pas de filtres (`operator`, `type`, `max_price`, `sort`), pas de pagination, pas d'endpoints `/api/operators`, `/api/coverage`, `/api/communes/search`. Tout cela en Phase 2.
