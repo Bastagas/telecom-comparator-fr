@@ -1,0 +1,38 @@
+# macOS
+.DS_Store
+._*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.env
+*.egg-info/
+
+# PHP
+vendor/
+
+# Secrets & config locale
+.env
+.env.local
+config.local.*
+db_credentials.*
+
+# Logs & dumps
+*.log
+*.sql.bak
+dumps/
+
+# Outputs scraping (si tu fais des extractions volumineuses en local)
+scraper/output/
+*.csv.tmp
+
+# Docker
+.docker/data/
