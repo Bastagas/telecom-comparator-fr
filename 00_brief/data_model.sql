@@ -185,14 +185,13 @@ CREATE TABLE coverage_mobile (
 --     contourne le NULL distinct de MySQL)
 --   - fk_cf_operator ON DELETE CASCADE → RESTRICT (requis par MySQL
 --     pour stored generated column + plus juste sémantiquement)
--- Note : `locaux_total` est conservé pour compat ; il fait doublon avec
--- communes.locaux_total et sera nettoyé en 2B.2 ou ultérieurement.
+-- Migration 2B.1.1bis (2026-04-26) : DROP coverage_fibre.locaux_total
+-- (doublon résolu : la donnée appartient à communes.locaux_total).
 -- =====================================================================
 CREATE TABLE coverage_fibre (
   id                        INT AUTO_INCREMENT PRIMARY KEY,
   code_insee                VARCHAR(5) NOT NULL,
   operator_id               INT NULL,                     -- NULL = données agrégées tous opérateurs
-  locaux_total              INT NULL,                     -- (legacy, à nettoyer ; voir communes.locaux_total)
   locaux_raccordables_ftth  INT NULL,                     -- locaux raccordables FTTH pur (vocabulaire ARCEP)
   locaux_raccordables_thd   INT NULL,                     -- locaux raccordables THD ≥ 100 Mb/s (FTTH + DOCSIS)
   locaux_eligibles_total    INT NULL,                     -- total éligibles toutes technos
