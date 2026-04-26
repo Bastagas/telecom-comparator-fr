@@ -363,6 +363,110 @@
 }
 
 /* ─────────────────────────────────────────────
+   About / méthodologie (about.php)
+   ─────────────────────────────────────────── */
+.about-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--sp-12) var(--sp-6) var(--sp-16);
+}
+.about-hero {
+  margin-bottom: var(--sp-16);
+}
+.about-hero__title {
+  margin: 0 0 var(--sp-3);
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+.about-hero__sub {
+  margin: 0;
+  color: var(--ink-2);
+  max-width: 56ch;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+.about-section {
+  margin-bottom: var(--sp-16);
+  scroll-margin-top: var(--sp-12);
+}
+.about-section__title {
+  margin: 0 0 var(--sp-4);
+}
+.about-section p {
+  color: var(--ink-2);
+  line-height: 1.7;
+  margin: 0 0 var(--sp-3);
+}
+.about-section ul {
+  color: var(--ink-2);
+  line-height: 1.7;
+  padding-left: var(--sp-6);
+  margin: 0 0 var(--sp-3);
+}
+.about-section li { margin-bottom: var(--sp-2); }
+.about-section li strong { color: var(--ink); font-weight: 600; }
+.about-section a {
+  color: var(--teal);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(15,118,110,0.2);
+  transition: border-color 150ms ease-out, color 150ms ease-out;
+}
+.about-section a:hover {
+  color: var(--teal-h);
+  border-color: var(--teal-h);
+}
+
+.about-table {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  margin-bottom: var(--sp-4);
+}
+.about-table__row {
+  display: grid;
+  grid-template-columns: 1fr 80px 2fr;
+  align-items: baseline;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.95rem;
+}
+.about-table__row:last-child { border-bottom: none; }
+.about-table__row--head {
+  background: var(--bg);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.about-table__weight { font-weight: 600; color: var(--ink); }
+.about-table__why { color: var(--ink-3); font-size: 0.875rem; }
+
+.about-note {
+  background: var(--teal-bg);
+  border: 1px solid rgba(15,118,110,0.15);
+  border-radius: var(--r-md);
+  padding: var(--sp-4) var(--sp-6);
+  color: var(--teal-h);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin-bottom: var(--sp-4);
+}
+.about-note strong { color: var(--teal-h); font-weight: 600; }
+
+.about-meta {
+  margin-top: var(--sp-12);
+  padding-top: var(--sp-6);
+  border-top: 1px solid var(--border);
+  color: var(--ink-3);
+  font-size: 0.8125rem;
+}
+
+/* ─────────────────────────────────────────────
    Page d'erreur (offer.php — 400/404)
    ─────────────────────────────────────────── */
 .error-page {
