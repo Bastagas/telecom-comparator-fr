@@ -55,6 +55,58 @@ Apprentissage : la documentation MySQL sur l'ordre des modifiers de generated co
 
 ---
 
+### 2026-04-26 — Tâche 2B.1.2 — Import du référentiel communes ARCEP
+
+**Préalables (2 mini-migrations)**
+- `fix(db)` séparé : DROP `coverage_fibre.locaux_total` (doublon résolu — la donnée appartient à `communes.locaux_total`, dimension géographique).
+- `fix(db)` séparé : `ALTER TABLE communes MODIFY postal_code VARCHAR(5) NULL`. Le CSV ARCEP ne fournit pas le code postal, et forcer un NOT NULL sur un champ non-fourni par la source primaire serait bricoler la donnée. Justification : le CP est non-univoque (1 commune ↔ N CP via les arrondissements), récupérable plus tard via l'API BAN en Phase 3.
+
+**Source ARCEP**
+- Dataset : *Le marché du haut et très haut débit fixe (déploiements)* sur data.gouv.fr (ID `547d8d7ac751df405d090fcb`), Licence Ouverte.
+- Fichier : *Relevé géographique - données sous-jacentes*, millésime 2025-T4 publié 2026-03-31, format CSV délimiteur `;`, encoding UTF-8, **6.6 MB / 34 919 communes**.
+- URL stable de la version : `https://static.data.gouv.fr/resources/le-marche-du-haut-et-tres-haut-debit-fixe-deploiements/20260331-154839/releve-geographique-donnees-2026-03.csv`.
+- Mise à jour ARCEP trimestrielle.
+
+**Architecture du loader** — `scraper/loader/communes.py` dans un sous-package `loader/` distinct de `operators/`. La séparation reflète la nature des sources : `operators/` scrape des sites commerciaux (HTML dynamique, parsing fragile, par-opérateur), `loader/` charge des fichiers ouverts du régulateur (CSV stable, parsing simple, par-régulateur). Cette discipline d'organisation est défendable jury : le code lui-même documente la diversité des stratégies d'ingestion.
+
+**Mapping CSV → schéma**
+- `INSEE_COM` → `code_insee` (5 chars, format respecté pour Métropole + DOM-TOM + COM)
+- `commune` → `name`
+- `INSEE_DEP` → `department` ("01"–"95", "2A"/"2B" pour la Corse, "971"–"978" pour DOM/COM)
+- `INSEE_REG` → mappé via `INSEE_REGION_NAMES` (dict statique, voir ci-dessous) → `region`
+- `locaux_commune` → `locaux_total` (parsé en float puis arrondi int)
+- `postal_code`, `population`, `lat`, `lng` : laissés NULL (absents du CSV)
+
+**Décision : table de correspondance `INSEE_REGION_NAMES` hardcodée**
+La liste des 18 régions françaises est figée par la loi NOTRe (2016) ; la requérir via une API externe à chaque import serait sur-engineering. Le dict statique inclut aussi les codes 07 (Saint-Barthélemy) et 08 (Saint-Martin) qu'ARCEP utilise pour ces COM (alors qu'INSEE n'a pas de code région standard pour elles). Les 20 valeurs de region distinctes en BDD correspondent exactement aux 20 codes du CSV — aucune commune n'a `region IS NULL` en sortie d'import.
+
+**Décision : parsing `locaux_commune` float→round int**
+Le champ ARCEP est en notation scientifique française (`"1,77688663801562e+03"` = 1776.88). La fractionnalité provient probablement d'une pondération statistique inter-trimestres ARCEP — sans signification métier (« 1 local entier » est l'unité naturelle). Conversion : `round(float(s.replace(',', '.')))`. Documenté pour ne pas surprendre un futur lecteur.
+
+**Cas particuliers vérifiés au sondage**
+- ✅ Corse : 2A001 (Afa), 2B... codes alphanumériques préservés via VARCHAR(5).
+- ✅ DOM : Guadeloupe (971), Martinique (972), Guyane (973), La Réunion (974), Mayotte (976).
+- ✅ COM : Saint-Barthélemy (977/97701) et Saint-Martin (978/97801) chacune une seule commune.
+- ⚠️ Saint-Pierre-et-Miquelon (975) absent du CSV ARCEP — confirmé hors champ régulation FTTH.
+- ✅ Paris : 20 arrondissements en communes distinctes (75101-75120), pattern ARCEP standard.
+
+**Fichiers absents et stratégie de comblement**
+- `postal_code` : voir préalable. Phase 3 via BAN.
+- `population` : à enrichir depuis le référentiel INSEE (data.gouv.fr "Populations légales" ou API geo INSEE) si le besoin émerge.
+- `lat`/`lng` : centroïde commune disponible via le shapefile IGN (admin-express) ou l'API geo INSEE. Phase 3 carto.
+- `locaux_total` ✅ (provenu du CSV ARCEP).
+
+**Idempotence vérifiée**
+- 1ᵉʳ run : 34 919 inserted, 0 updated, 0 errors.
+- 2ᵉ run : 0 inserted, 34 919 updated, 0 errors. UPSERT via `INSERT ... ON DUPLICATE KEY UPDATE` sur PK `code_insee` fait son job.
+- Cache disque (`~/.cache/telecom-comparator/arcep/`, TTL 7 jours) évite de re-télécharger le CSV à chaque itération de dev — 2ᵉ run en 1 seconde.
+
+**Distribution finale en BDD** : 5115 Grand Est, 4446 Occitanie, 4293 Nouvelle-Aquitaine, 4033 Auvergne-Rhône-Alpes, 3782 Hauts-de-France, …, 1 Saint-Barthélemy, 1 Saint-Martin. Aucune commune avec region NULL — le mapping INSEE_REG est exhaustif.
+
+**Prochaine tâche** — 2B.1.3 : import couverture fibre depuis ce même CSV (`taux_depl_commune`, `IPE_commune`, `deploye_commune`) **ou** depuis le ZIP `2025T4-Commune` plus détaillé (31 MB), arbitrage à faire au moment de la 2B.1.3.
+
+---
+
 ## Phase 2A — Extension multi-opérateurs
 
 ### 2026-04-26 — Tâche 2A.0 — Scout sites opérateurs
