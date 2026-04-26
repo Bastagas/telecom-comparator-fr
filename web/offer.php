@@ -269,7 +269,7 @@ require __DIR__ . '/partials/header.php';
     <section class="detail-block offer-card__score">
         <div class="detail-block__head">
             <h2 class="t-h2 detail-block__title">Score qualité/prix</h2>
-            <a href="#" class="page-footer__link" style="font-size:.8125rem;">Comment est calculé ce score ?</a>
+            <a href="about.php#score" class="page-footer__link" style="font-size:.8125rem;">Comment est calculé ce score ?</a>
         </div>
         <div class="offer-card__score-row">
             <span class="t-caption">Score</span>
