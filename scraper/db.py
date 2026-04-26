@@ -1,4 +1,4 @@
-"""Connexion MySQL et helpers d'upsert pour le pipeline scraping."""
+"""Connexion MySQL et helper d'upsert pour le pipeline scraping."""
 
 from __future__ import annotations
 
@@ -34,12 +34,16 @@ def get_operator_id(cursor, slug: str) -> int:
     return row[0]
 
 
-def upsert_offer(
-    operator_slug: str,
-    offer: dict[str, Any],
-    fibre_specs: dict[str, Any] | None = None,
-) -> int:
+def upsert_offer(offer: dict[str, Any]) -> int:
     """Insert ou met à jour une offre + ses fibre_specs de manière atomique.
+
+    Le format du dict est défini par `scraper.operators.base` :
+        - operator_slug, type, name, monthly_price, promo_price,
+          promo_duration_months, commitment_months, setup_fee,
+          source_url, score
+        - fibre_specs (dict imbriqué) : download_mbps, upload_mbps,
+          technology, wifi_standard, has_tv, tv_channels_count, has_landline.
+          Peut être absent ou None pour les offres mobile pures.
 
     L'upsert s'appuie sur la UNIQUE KEY (operator_id, type, name) de offers.
     Retourne l'id de la ligne offers concernée.
@@ -48,7 +52,7 @@ def upsert_offer(
     conn.autocommit = False
     try:
         cursor = conn.cursor()
-        operator_id = get_operator_id(cursor, operator_slug)
+        operator_id = get_operator_id(cursor, offer["operator_slug"])
 
         cursor.execute(
             """
@@ -88,6 +92,7 @@ def upsert_offer(
         )
         offer_id = cursor.fetchone()[0]
 
+        fibre_specs = offer.get("fibre_specs")
         if fibre_specs is not None:
             cursor.execute(
                 """
