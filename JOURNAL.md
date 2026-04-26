@@ -112,6 +112,33 @@ Détail :
 **Recalibrage prévu en Phase 2B**
 - Ajout d'une 7e variable "qualité réseau ARCEP" — les 6 poids actuels seront repondérés pour intégrer la nouvelle (probablement 10–15 %).
 
+### 2026-04-26 — Tâche 2A.5 — Scraper SFR
+
+**Note inversée du scout** — le scout 2A.0 avait noté "JSON-LD présent" sur SFR. En réalité le seul `<script type="application/ld+json">` de la page est un `BreadcrumbList` (fil d'Ariane), inutilisable pour les produits. Stratégie revue à l'inspection rapprochée : extraction des **mentions légales** (HTML stable car cadre légal) pour le prix + engagement + nom, complété par un **mapping documenté Box → débits/Wi-Fi** dérivé des paragraphes "débit théorique" du même HTML.
+
+**Périmètre Phase 2A — 2 offres scrapées sur 4 détectées**
+- ✅ **SFR Fibre Premium** — 45,99 €, sans engagement, Box 10+, FTTH 8 Gb/s symétrique, Wi-Fi 7.
+- ✅ **SFR Fibre Power** — 36,99 €, engagement 12 mois, Box 8, FTTH 1 Gb/s↓ / 100 Mbps↑, Wi-Fi 6.
+- ⚠️ **SFR Starter** (Box 7) et **SFR Power S** (Box 8) — *skippées avec warning*. Leurs débits sont formulés en fourchettes ambiguës dans le HTML (« 500 Mb/s ou 1 Gb/s »), le brief impose de ne pas insérer une ligne avec `download_mbps = NULL`. À reprendre Phase 2C avec fixtures HTML.
+
+**Mapping Box → fibre_specs** (constante `KNOWN_OFFERS` dans `sfr.py`, annotée `# vérifié 2026-04-26`) :
+| Box | Download | Upload | Wi-Fi |
+|---|---|---|---|
+| Box 10+ (Premium) | 8000 Mbps | 8000 Mbps | Wi-Fi 7 |
+| Box 8 (Power) | 1000 Mbps | 100 Mbps | Wi-Fi 6 |
+
+`setup_fee = 49 €` (constante observée "Frais d'ouverture de service de 49€ sur les offres Box").
+
+**Impact sur le score Free — preuve que le min-max est sain**
+- **Avant SFR** (Free seul, min == max sur tout) : score 6.8 (porté par les fallbacks 7.5).
+- **Après SFR** (3 offres, vrai marché) : score **6.0** (-0.8). Le min-max n'est plus dégénéré : Free reste le mieux placé du panel (Wi-Fi 7 + sans engagement + débit honnête + prix médian), mais perd les fallbacks neutres.
+- Scores SFR : Premium 4.8, Power 4.8 (égalité mathématique fortuite — Premium domine sur débit/Wi-Fi 7, Power sur prix, ça compense).
+
+**Limitations connues**
+- 2 offres SFR sur 4 (couverture 50% du catalogue commercial fibre). Le brief privilégie qualité > quantité.
+- Pas de promo extraite (la page affiche un "29,99€ Sans engagement" en hero, mais sans rattachement explicite à une offre nommée — non scrapable proprement sans BS4 + sélecteur précis, reporté Phase 2C).
+- Mapping Box → débits codé en dur. Les fixtures HTML versionnées et tests unitaires (Phase 2C) sécuriseront ce point.
+
 ---
 
 ## Phase 1 — Walking skeleton
