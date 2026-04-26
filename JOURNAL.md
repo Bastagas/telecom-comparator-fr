@@ -5,6 +5,56 @@
 
 ---
 
+## Phase 2B — Enrichissement ARCEP (en cours)
+
+### 2026-04-26 — Tâche 2B.1.1 — Schéma communes + coverage_fibre
+
+**Contexte** — Phase 2B découpée en deux temps : 2B.1 = ARCEP fibre seul (couverture FTTH par commune), 2B.2 = mobile + recalibrage du score composite. Cette tâche pose le schéma BDD pour la fibre, sans import (l'import vient en 2B.1.2 + 2B.1.3).
+
+**Découverte initiale (sondage > présupposé)** — le brief original 2B.1.1 supposait qu'il fallait *créer* les tables `communes` et `coverage_fibre`. Sondage rapide via `SHOW TABLES` : elles **existent déjà**, créées en Phase 1 comme placeholders Phase 2 dans `data_model.sql`. Vides en données. STOP avant action destructive, expose la divergence schéma sur 4 axes (clé naturelle vs surrogate, per-operator, granularité locaux, naming sources). User arbitre sur la voie C : ALTER TABLE non destructif, schéma enrichi sans DROP/CREATE.
+
+**4 décisions techniques validées en upstream**
+
+1. **Naming ARCEP-strict** : `locaux_raccordables_ftth/_thd` (vocabulaire officiel régulateur) plutôt que `_eligibles_*` (vocabulaire FAI commercial). Fidélité documentaire pour défense jury.
+2. **DROP des champs redondants** : `locaux_raccordables`, `pct_couverture`, `data_source` étaient des placeholders Phase 1 trop pauvres. Remplacés par `locaux_raccordables_ftth/_thd`, `taux_fibre`, `source_millesime + source_url`.
+3. **RENAME `captured_at → imported_at`** sur `coverage_fibre` ET `coverage_mobile`. Sémantique : import CSV ≠ capture scrape. Cohérence cross-table assumée (scope micro-élargi pour éviter de re-toucher coverage_mobile en 2B.2).
+4. **Generated column STORED** `operator_id_key = IFNULL(operator_id, 0)` pour contourner le NULL distinct de MySQL dans une UNIQUE KEY. Sans ça, deux lignes agrégées (operator_id IS NULL) avec même commune/millésime ne seraient pas considérées en doublon, ce qui casserait l'idempotence de l'import.
+
+**5ᵉ décision (debug log)** — bug MySQL rencontré en cours d'application : ADD COLUMN STORED échoue avec `ERROR 1215: Cannot add foreign key constraint` si la colonne de base est référencée par un FK avec ON DELETE CASCADE. Règle MySQL : *« Foreign key constraints from a column referenced by a stored generated column to another table cannot use CASCADE, SET NULL, or SET DEFAULT as ON UPDATE/DELETE. »* Décision : passer `coverage_fibre.fk_cf_operator` ET `coverage_mobile.fk_cm_operator` (par cohérence proactive 2B.2) en `ON DELETE RESTRICT`. Justification double :
+- (a) **Requis techniquement** pour permettre la generated column STORED.
+- (b) **Plus juste sémantiquement** : la suppression d'un opérateur ne doit pas effacer en cascade des centaines de milliers de lignes de couverture sans contrôle. RESTRICT force une suppression explicite. Le CASCADE Phase 1 était une posture défensive sans cas d'usage réel (les 4 opérateurs FR sont fixes, jamais supprimés). Les FK `fk_cf_commune` et `fk_cm_commune` (référençant `communes`) restent en CASCADE — sémantiquement correct (si on supprime une commune, sa couverture associée n'a plus de sens).
+
+**Itérations migration**
+
+Trois passes avant que le script s'applique d'une traite :
+1. Premier essai : syntaxe `INT NOT NULL AS (...) STORED` → erreur 1064 (mot-clé `GENERATED ALWAYS` manquant).
+2. Deuxième essai avec `INT NOT NULL GENERATED ALWAYS AS (...) STORED` → erreur 1064 (ordre incorrect : `NOT NULL` doit être après `STORED`).
+3. Troisième essai avec ordre corrigé `INT GENERATED ALWAYS AS (...) STORED NOT NULL` → erreur 1215 (FK CASCADE incompatible). Ajout du swap CASCADE → RESTRICT en amont. Migration finale propre, exit=0.
+
+Apprentissage : la documentation MySQL sur l'ordre des modifiers de generated columns est fragmentée. Le bon ordre est `data_type GENERATED ALWAYS AS (expr) [VIRTUAL|STORED] [NOT NULL|NULL]`. Et la règle FK est dans une note tertiaire de la doc. Note pour Phase 2B.2 : si on ajoute un STORED operator_id_key sur `coverage_mobile`, le swap CASCADE → RESTRICT est déjà fait (proactif).
+
+**Schéma final**
+
+`communes` ajoute : `locaux_total INT NULL` (denominateur du taux ARCEP, baseline géographique sur la commune et non sur la couverture) + `imported_at TIMESTAMP`. Les 3 indexes (`idx_postal`, `idx_department`, `idx_name`) étaient déjà présents.
+
+`coverage_fibre` :
+- DROP : `locaux_raccordables`, `pct_couverture`, `data_source`
+- ADD : `locaux_raccordables_ftth/_thd`, `locaux_eligibles_total`, `taux_fibre`, `source_millesime` (NOT NULL, idempotence), `source_url`, `operator_id_key` STORED
+- RENAME : `captured_at → imported_at`
+- INDEXES : `UNIQUE (code_insee, operator_id_key, source_millesime)`, `INDEX idx_taux_fibre`
+- FK : `fk_cf_operator` swap CASCADE → RESTRICT
+- Doublon connu et reporté : `coverage_fibre.locaux_total` chevauche désormais `communes.locaux_total`. Conservé en l'état (hors scope 2B.1.1), à nettoyer en 2B.1.2 ou plus tard.
+
+`coverage_mobile` : juste `captured_at → imported_at` + swap FK CASCADE → RESTRICT. Refonte des champs prévue en 2B.2.
+
+**Prochaines tâches**
+- **2B.1.2** : import du référentiel communes INSEE (~35 000 communes, source data.gouv.fr ou code-postal-code-insee).
+- **2B.1.3** : import couverture fibre depuis le CSV ARCEP `data.arcep.fr/fixe/maconnexioninternet/`. Phase 2B.1.3 importera l'agrégé seul (`operator_id IS NULL` → key=0). Le per-operator viendra plus tard si pertinent (2C/3).
+- **2B.1.4** : endpoints API `/api/communes/search` (autocomplete) et `/api/coverage?commune=…`.
+- **2B.1.5** : intégration front (page commune ou bandeau couverture sur offer.php).
+
+---
+
 ## Phase 2A — Extension multi-opérateurs
 
 ### 2026-04-26 — Tâche 2A.0 — Scout sites opérateurs
