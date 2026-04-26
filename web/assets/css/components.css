@@ -189,3 +189,65 @@
 .btn-primary:hover { background: var(--teal-h); }
 .btn-primary:active { transform: scale(0.98); }
 .btn-primary:focus-visible { box-shadow: var(--ring-focus); outline: none; }
+
+/* ─────────────────────────────────────────────
+   Pastille acide — variante kicker (hero home)
+   ─────────────────────────────────────────── */
+.acid-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  background: var(--acid);
+  color: var(--acid-ink);
+  font-weight: 600;
+  font-size: 0.75rem;
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.acid-kicker::before {
+  content: "";
+  width: 6px; height: 6px;
+  background: var(--acid-ink);
+  border-radius: 50%;
+}
+
+/* ─────────────────────────────────────────────
+   Segmented control (filtre type sur index)
+   ─────────────────────────────────────────── */
+.segmented {
+  display: inline-flex;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 3px;
+  gap: 2px;
+}
+.segmented input[type="radio"] {
+  position: absolute;
+  width: 1px; height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.segmented label {
+  padding: 0 var(--sp-3);
+  height: 32px;
+  display: flex;
+  align-items: center;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--ink-3);
+  transition: background 150ms ease-out, color 150ms ease-out;
+  user-select: none;
+}
+.segmented input[type="radio"]:checked + label {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+.segmented input[type="radio"]:focus-visible + label {
+  box-shadow: var(--ring-focus);
+}
