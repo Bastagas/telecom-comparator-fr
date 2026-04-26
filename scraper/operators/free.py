@@ -98,10 +98,3 @@ class FreeScraper(BaseScraper):
             },
         }
         return [offer]
-
-
-# Shim de compatibilité pour pipeline.py tant qu'il appelle `module.scrape()`.
-# Sera retiré dans la prochaine itération qui passe pipeline.py sur l'API
-# class-based (`FreeScraper().run()`).
-def scrape() -> int:
-    return FreeScraper().run()
