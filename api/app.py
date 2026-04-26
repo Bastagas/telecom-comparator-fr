@@ -1,7 +1,8 @@
-"""API Flask — Phase 1 walking skeleton.
+"""API Flask — Phase 2A endpoints enrichis.
 
 Endpoints :
-- GET /api/offers       liste simple
+- GET /api/operators    liste des opérateurs
+- GET /api/offers       liste filtrée + paginée
 - GET /api/offers/<id>  détail d'une offre
 """
 
@@ -18,6 +19,20 @@ app = Flask(__name__)
 
 def _to_float(value):
     return float(value) if value is not None else None
+
+
+@app.get("/api/operators")
+def list_operators():
+    conn = get_connection()
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT id, slug, name, website_url FROM operators ORDER BY name"
+        )
+        rows = cursor.fetchall()
+    finally:
+        conn.close()
+    return jsonify(rows)
 
 
 @app.get("/api/offers")
