@@ -43,7 +43,7 @@ CREATE TABLE operators (
 CREATE TABLE communes (
   code_insee   VARCHAR(5) PRIMARY KEY,         -- code INSEE 5 caractères
   name         VARCHAR(100) NOT NULL,
-  postal_code  VARCHAR(5) NOT NULL,
+  postal_code  VARCHAR(5) NULL,                -- NULLable depuis 2B.1.1ter (CSV ARCEP ne fournit pas le CP)
   department   VARCHAR(3) NOT NULL,            -- code département INSEE (01-95, 971...)
   region       VARCHAR(50),
   locaux_total INT NULL,                       -- nb total de locaux (publié par ARCEP, baseline du taux)
