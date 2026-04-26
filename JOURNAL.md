@@ -72,6 +72,46 @@ Pas de "fallback agrégateur" (Selectra/Ariase) nécessaire en Phase 1 du scout.
 - Après refacto + 1 run pipeline : strictement identique (même `id=1`, même prix, mêmes débits).
 - `last_scraped_at` mis à jour, `first_seen_at` figé : la UNIQUE KEY fait toujours son travail.
 
+### 2026-04-26 — Tâche 2A.2 — Scoring composite
+
+**Objectif** — calculer un score /10 par offre, persisté en BDD, affiché en front.
+
+**Formule** (cf. `00_brief/PHASE_2_PLAN.md` pour la version chapeau)
+| Variable | Poids | Sens | Calcul |
+|---|---|---|---|
+| Prix mensuel | 35% | inversé | min-max sur le marché |
+| Débit descendant | 25% | direct | min-max sur le marché |
+| Options incluses | 15% | direct | Σ poids catégories × 2, capé à 10 |
+| Engagement | 10% | inversé | 0 mois = 10, 24 mois = 0, linéaire |
+| Frais d'installation | 10% | inversé | min-max sur le marché |
+| Bonus techno | 5% | seuils | Wi-Fi 7 = +5, débit ↑ ≥ 700 = +5 |
+
+Catégories d'options pondérées : streaming = 1, tv = 1, storage = 0.5, gaming = 0.5, other = 0.5. Score d'option = Σ × 2, capé à 10.
+
+**Cas limite — `min == max` sur le marché → 7.5 par défaut**
+- Quand une variable n'a aucune dispersion (typique : un seul opérateur en BDD au début de la 2A), `_normalize` renvoie `NEUTRAL_FALLBACK = 7.5`.
+- Justification : valeur "marché de référence neutre", évite que le score ne saute brutalement quand on passe de 1 à 2 offres avec un prix plus haut. La barre teal s'affiche correctement (≠ vide) pendant toute la transition multi-opérateurs Phase 2A.
+
+**Architecture**
+- `compute_score(offer, market)` est une fonction pure : la pondération des options est pré-calculée côté SQL via un `CASE` par catégorie, agrégé en `options_weighted` dans la même requête.
+- `recalculate_all_scores(conn)` est appelé **une seule fois** à la fin du pipeline, après l'itération sur tous les opérateurs : les stats de marché dépendent de l'ensemble des offres, donc impossible à calculer offre par offre dans `BaseScraper.run`.
+
+**Score Freebox Pop seule en BDD = 6.8 / 10**
+Détail :
+- price (39.99, min=max → 7.5) × 0.35 = 2.625
+- download (5000, min=max → 7.5) × 0.25 = 1.875
+- options (0 incluses) × 0.15 = 0
+- engagement (sans engagement → 10) × 0.10 = 1.0
+- setup (49 €, min=max → 7.5) × 0.10 = 0.75
+- tech_bonus (Wi-Fi 7 +5, upload 900 ≥ 700 +5 → 10) × 0.05 = 0.5
+- **Total = 6.75 → arrondi 6.8**
+
+**Front**
+- `results.php` affiche désormais "6,8 / 10" et la barre teal se remplit à 68% au mount de la carte (animation `score-bar > .fill` activée par `animations.js`, déjà en place depuis Phase 1).
+
+**Recalibrage prévu en Phase 2B**
+- Ajout d'une 7e variable "qualité réseau ARCEP" — les 6 poids actuels seront repondérés pour intégrer la nouvelle (probablement 10–15 %).
+
 ---
 
 ## Phase 1 — Walking skeleton
