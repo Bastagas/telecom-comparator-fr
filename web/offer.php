@@ -92,6 +92,23 @@ $optStmt = $pdo->prepare("
 $optStmt->execute(['id' => $offerId]);
 $options = $optStmt->fetchAll();
 
+// ─── Historique des prix (Phase 2A.8) ───────────────────────────────
+$historyStmt = $pdo->prepare("
+    SELECT monthly_price, captured_at, is_simulated
+    FROM prices_history
+    WHERE offer_id = :id
+    ORDER BY captured_at ASC
+");
+$historyStmt->execute(['id' => $offerId]);
+$priceHistoryRows = $historyStmt->fetchAll();
+
+$priceHistory = array_map(fn($r) => [
+    'price'        => (float) $r['monthly_price'],
+    'captured_at'  => $r['captured_at'],
+    'is_simulated' => (bool) $r['is_simulated'],
+], $priceHistoryRows);
+$historyHasSimulated = (bool) array_filter($priceHistory, fn($p) => $p['is_simulated']);
+
 // Préparation affichage
 $hasPromo  = $offer['promo_price'] !== null;
 $savings   = $hasPromo ? max(0, (float)$offer['monthly_price'] - (float)$offer['promo_price']) : 0;
@@ -155,6 +172,31 @@ require __DIR__ . '/partials/header.php';
             <span class="t-caption price-fineprint">
                 Frais de mise en service : <?= fmt_price((float)$offer['setup_fee']) ?>.
             </span>
+        <?php endif; ?>
+    </section>
+
+    <section class="detail-block">
+        <div class="detail-block__head">
+            <h2 class="t-h2 detail-block__title">Évolution du prix</h2>
+        </div>
+        <?php if (count($priceHistory) < 5): ?>
+            <div class="options-empty">
+                Historique en cours de constitution. Revenez dans quelques jours.
+            </div>
+        <?php else: ?>
+            <div class="price-chart">
+                <canvas id="price-chart" height="200" aria-label="Graphique d'évolution du prix mensuel"></canvas>
+            </div>
+            <?php if ($historyHasSimulated): ?>
+                <p class="price-chart__disclaimer">
+                    Historique reconstitué à partir de données de démonstration.
+                    La collecte automatisée alimentera ce graphique avec des
+                    données réelles à partir du <?= e(date('d/m/Y', strtotime('+1 day'))) ?>.
+                </p>
+            <?php endif; ?>
+            <script>
+              window.__priceHistory = <?= json_encode($priceHistory, JSON_UNESCAPED_UNICODE) ?>;
+            </script>
         <?php endif; ?>
     </section>
 
@@ -261,4 +303,8 @@ require __DIR__ . '/partials/header.php';
         Dernière mise à jour : <?= e((string)$offer['last_scraped_at']) ?>
     </p>
 
+<?php if (count($priceHistory) >= 5): ?>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+<script src="assets/js/price-chart.js" defer></script>
+<?php endif; ?>
 <?php require __DIR__ . '/partials/footer.php'; ?>

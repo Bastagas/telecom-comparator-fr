@@ -357,6 +357,29 @@
   border: 1px solid rgba(15,118,110,0.15);
   color: var(--teal-h);
 }
+
+/* ─────────────────────────────────────────────
+   Graph d'évolution du prix (offer.php — Chart.js)
+   ─────────────────────────────────────────── */
+.price-chart {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--sp-4);
+  position: relative;
+}
+.price-chart canvas {
+  max-height: 200px;
+  width: 100% !important;
+  height: 200px !important;
+}
+.price-chart__disclaimer {
+  margin: var(--sp-3) 0 0;
+  font-size: 0.75rem;
+  color: var(--ink-3);
+  font-style: italic;
+  line-height: 1.4;
+}
 .phase2-placeholder strong { color: var(--teal-h); font-weight: 600; }
 .phase2-placeholder ul {
   margin: var(--sp-2) 0 0;
