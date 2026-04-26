@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -121,6 +122,39 @@ def upsert_offer(offer: dict[str, Any]) -> int:
                     fibre_specs.get("has_landline", True),
                 ),
             )
+
+        # ─── prices_history (collecte réelle, is_simulated = FALSE) ──────
+        # On enregistre une ligne si :
+        #   (a) aucune ligne n'existe encore pour cette offre, OU
+        #   (b) le prix mensuel diffère du dernier point réel, OU
+        #   (c) le dernier point réel date de plus de 24h.
+        # Les points simulés (seed) sont ignorés dans la condition pour
+        # éviter de masquer des changements réels par la démo.
+        cursor.execute(
+            """
+            SELECT monthly_price, captured_at
+            FROM prices_history
+            WHERE offer_id = %s AND is_simulated = FALSE
+            ORDER BY captured_at DESC
+            LIMIT 1
+            """,
+            (offer_id,),
+        )
+        last_real = cursor.fetchone()
+        should_insert = (
+            last_real is None
+            or float(last_real[0]) != float(offer["monthly_price"])
+            or (datetime.now() - last_real[1]).total_seconds() > 24 * 3600
+        )
+        if should_insert:
+            cursor.execute(
+                """
+                INSERT INTO prices_history (offer_id, monthly_price, is_simulated)
+                VALUES (%s, %s, FALSE)
+                """,
+                (offer_id, offer["monthly_price"]),
+            )
+            logger.debug("price_history +1 (real) for offer_id=%s", offer_id)
 
         conn.commit()
         logger.info("Upserted offer id=%s name=%r", offer_id, offer["name"])
