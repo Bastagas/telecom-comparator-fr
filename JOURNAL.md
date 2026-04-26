@@ -5,6 +5,45 @@
 
 ---
 
+## Phase 2A — Extension multi-opérateurs
+
+### 2026-04-26 — Tâche 2A.0 — Scout sites opérateurs
+
+**Objectif** — cartographier en 15 min la difficulté des 3 prochaines cibles (Bouygues, SFR, Orange) avant de figer l'ordre d'attaque et de concevoir le `BaseScraper`.
+
+**Méthode** — `requests` + UA Chrome 124 + `Accept-Language: fr-FR`. Mesure HTTP, taille, occurrences `€` / `/mois`, présence d'anti-bot, structure (JSON-LD, microdata, inline JSON, Tailwind).
+
+**Résultats**
+
+| Opérateur | URL | HTTP | Taille | Prix visibles | Anti-bot | Structure | Difficulté |
+|---|---|---|---|---|---|---|---|
+| Free *(rappel Phase 1)* | free.fr/freebox/freebox-pop/ | 200 | 169 KB | oui | non | Tailwind brut, classes hashées | Facile (regex) |
+| **Bouygues** | bouyguestelecom.fr/offres-internet | 200 | **508 KB** | oui (256 `/mois`) | non | **JSON-LD** + Tailwind | Facile |
+| **SFR** | sfr.fr/offre-internet/ | 200 | 162 KB | oui (37 `/mois`) | non | **JSON-LD** | Facile |
+| **Orange** | boutique.orange.fr/internet/offres-fibre | 200 | 160 KB | oui (43 `/mois`) | non | **Microdata** (`itemscope`) | Facile |
+
+**Note URL Orange** — `nouveau.orange.fr/offres/internet/` (URL initiale du brief) ne résout plus en DNS. Le portail `www.orange.fr` est un SPA qui ne sert qu'un shell de 1,1 KB. Le bon point d'entrée pour scraper est `boutique.orange.fr/internet/offres-fibre` (SSR, prix visibles, "Livebox" cité 325 fois). À refléter dans le scraper Phase 2A.7.
+
+**Constats globaux**
+- Aucun des 3 sites n'oppose d'anti-bot (Cloudflare, DataDome, hCaptcha) à un GET simple avec UA navigateur.
+- Tous les 3 sont en SSR avec prix visibles dans le HTML brut → pas besoin de Playwright.
+- 2 sur 3 (Bouygues, SFR) exposent du JSON-LD, plus stable que des sélecteurs CSS Tailwind. À privilégier dans le parsing.
+- Orange utilise des microdata `itemprop`/`itemscope` — exploitables proprement avec BeautifulSoup.
+
+**Stratégie par opérateur**
+- **Bouygues** — Approche identique Free, mais on extrait via JSON-LD en priorité (`script[type="application/ld+json"]`). Regex en filet de sécurité.
+- **SFR** — Idem. JSON-LD prioritaire.
+- **Orange** — BeautifulSoup sur les microdata `itemscope/itemprop`. Pas de JSON-LD.
+
+**Ordre d'attaque recommandé** (Phase 2A.5 → 2A.7)
+1. **SFR** — petit volume + JSON-LD standard, valide la classe `BaseScraper` sur un cas simple.
+2. **Bouygues** — JSON-LD aussi (acquis SFR réutilisable), volume plus gros confirme la robustesse.
+3. **Orange** — microdata, approche complémentaire, ferme le cycle des 3 patterns d'extraction.
+
+Pas de "fallback agrégateur" (Selectra/Ariase) nécessaire en Phase 1 du scout. À garder en réserve si un site bascule sur du JS-only.
+
+---
+
 ## Phase 1 — Walking skeleton
 
 ### 2026-04-26 — Tâche 1.2 — Scraper Free Pop
