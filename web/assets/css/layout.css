@@ -78,11 +78,21 @@
   margin-bottom: var(--sp-4);
 }
 
-/* Grille de cartes */
+/* Grille de cartes — responsive 1/2/3 colonnes */
 .results-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  grid-template-columns: 1fr;
   gap: var(--sp-6);
+}
+@media (min-width: 768px) {
+  .results-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (min-width: 1200px) {
+  .results-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 /* État vide */
