@@ -50,19 +50,51 @@ python -m api.app
 l'AirPlay Receiver (process `ControlCenter`), d'où ce choix. Le port est
 configurable via la variable `API_PORT` du `.env`.
 
-**Endpoints Phase 1**
+**Endpoints**
 
-- `GET /api/offers` — liste des offres actives.
+- `GET /api/operators` — liste des 4 opérateurs (id, slug, name, website_url).
+- `GET /api/offers` — liste filtrée + paginée (envelope `{data, pagination, filters_applied}`).
 - `GET /api/offers/<id>` — détail d'une offre (specs, options, opérateur). 404 si id inconnu.
 
-Filtres avancés, pagination, `/api/operators`, endpoints couverture ARCEP : Phase 2.
+Endpoints couverture ARCEP (`/api/coverage`, `/api/communes/search`) : Phase 2B.
+
+**Query params de `/api/offers`** *(tous optionnels)*
+
+| Param | Type | Validation |
+|---|---|---|
+| `operator` | slug | doit exister en BDD (sinon 400) |
+| `type` | `fibre` / `mobile` / `bundle` | whitelist (sinon 400) |
+| `max_price` | float | > 0 (sinon 400) |
+| `min_download` | int (Mbps) | > 0 (sinon 400) |
+| `has_promo` | `1` | filtre offres avec `promo_price IS NOT NULL` |
+| `sort` | `score` (défaut, DESC) / `price_asc` / `price_desc` | whitelist (sinon 400) |
+| `page` | int | >= 1 (défaut 1) |
+| `per_page` | int | 1–100 (défaut 20) |
+
+Toute erreur de validation renvoie un `HTTP 400` avec un body JSON `{"error": "..."}`.
 
 **Exemples curl**
 
 ```bash
+# Tous les opérateurs
+curl -s http://localhost:5001/api/operators | python3 -m json.tool
+
+# Liste complète paginée (envelope avec pagination)
 curl -s http://localhost:5001/api/offers | python3 -m json.tool
+
+# Filtres combinés : prix max 40 €, tri prix croissant, 2 par page
+curl -s "http://localhost:5001/api/offers?max_price=40&sort=price_asc&per_page=2" | python3 -m json.tool
+
+# Page 2 du même filtre
+curl -s "http://localhost:5001/api/offers?max_price=40&sort=price_asc&per_page=2&page=2" | python3 -m json.tool
+
+# Détail d'une offre + erreur 404
 curl -s http://localhost:5001/api/offers/1 | python3 -m json.tool
 curl -i -s http://localhost:5001/api/offers/9999    # → 404 JSON
+
+# Erreurs 400 typiques
+curl -i -s "http://localhost:5001/api/offers?operator=inconnu"   # Unknown operator
+curl -i -s "http://localhost:5001/api/offers?per_page=200"       # per_page must be between 1 and 100
 ```
 
 ### Front PHP via MAMP
