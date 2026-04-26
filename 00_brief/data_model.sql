@@ -77,6 +77,7 @@ CREATE TABLE offers (
     FOREIGN KEY (operator_id) REFERENCES operators(id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
+  UNIQUE KEY uk_offer_identity (operator_id, type, name),
   INDEX idx_operator_type (operator_id, type),
   INDEX idx_price (monthly_price),
   INDEX idx_score (score)
