@@ -33,41 +33,96 @@ def _to_float(value):
     return float(value) if value is not None else None
 
 
+class FilterError(ValueError):
+    """Validation error sur un query param — déclenche une 400 JSON."""
+
+
+def _validate_operator(slug):
+    """Vérifie que le slug existe en BDD. Levée FilterError sinon."""
+    if not slug:
+        return None
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1 FROM operators WHERE slug = %s", (slug,))
+        if cursor.fetchone() is None:
+            raise FilterError(f"Unknown operator: {slug}")
+    finally:
+        conn.close()
+    return slug
+
+
+def _parse_positive_float(args, key):
+    raw = args.get(key)
+    if raw is None or raw == "":
+        return None
+    try:
+        value = float(raw)
+    except ValueError:
+        raise FilterError(f"{key} must be a number")
+    if value <= 0:
+        raise FilterError(f"{key} must be > 0")
+    return value
+
+
+def _parse_positive_int(args, key):
+    raw = args.get(key)
+    if raw is None or raw == "":
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        raise FilterError(f"{key} must be an integer")
+    if value <= 0:
+        raise FilterError(f"{key} must be > 0")
+    return value
+
+
 def _parse_offer_filters(args):
-    """Lit et nettoie les query params de /api/offers — version permissive.
+    """Lit et valide les query params de /api/offers.
 
-    Retourne un dict {operator, type, max_price, min_download, has_promo,
-    sort, page, per_page}. Les valeurs invalides sont silencieusement
-    coercées vers leur défaut. La validation stricte (400 errors) est
-    introduite dans une étape ultérieure.
+    Lève FilterError (→ 400) sur :
+      - operator slug inconnu en BDD
+      - type hors whitelist {fibre, mobile, bundle}
+      - max_price / min_download non numériques ou ≤ 0
+      - sort hors whitelist {score, price_asc, price_desc}
+      - page < 1, per_page hors [1, 100]
     """
-    operator = args.get("operator") or None
-    type_ = args.get("type") if args.get("type") in ALLOWED_TYPES else None
+    operator = _validate_operator(args.get("operator"))
 
-    try:
-        max_price = float(args["max_price"]) if args.get("max_price") else None
-    except (ValueError, TypeError):
-        max_price = None
+    type_raw = args.get("type")
+    if type_raw and type_raw not in ALLOWED_TYPES:
+        raise FilterError(
+            f"type must be one of {sorted(ALLOWED_TYPES)} (got {type_raw!r})"
+        )
+    type_ = type_raw or None
 
-    try:
-        min_download = int(args["min_download"]) if args.get("min_download") else None
-    except (ValueError, TypeError):
-        min_download = None
+    max_price = _parse_positive_float(args, "max_price")
+    min_download = _parse_positive_int(args, "min_download")
 
     has_promo = args.get("has_promo") == "1"
 
-    sort = args.get("sort") if args.get("sort") in SORT_OPTIONS else "score"
+    sort = args.get("sort") or "score"
+    if sort not in SORT_OPTIONS:
+        raise FilterError(
+            f"sort must be one of {sorted(SORT_OPTIONS)} (got {sort!r})"
+        )
 
+    page_raw = args.get("page", "1")
     try:
-        page = max(1, int(args.get("page", 1)))
-    except (ValueError, TypeError):
-        page = 1
+        page = int(page_raw)
+    except ValueError:
+        raise FilterError("page must be an integer")
+    if page < 1:
+        raise FilterError("page must be >= 1")
 
+    per_page_raw = args.get("per_page", str(DEFAULT_PER_PAGE))
     try:
-        per_page = int(args.get("per_page", DEFAULT_PER_PAGE))
-    except (ValueError, TypeError):
-        per_page = DEFAULT_PER_PAGE
-    per_page = max(1, min(per_page, MAX_PER_PAGE))
+        per_page = int(per_page_raw)
+    except ValueError:
+        raise FilterError("per_page must be an integer")
+    if per_page < 1 or per_page > MAX_PER_PAGE:
+        raise FilterError(f"per_page must be between 1 and {MAX_PER_PAGE}")
 
     return {
         "operator":     operator,
@@ -79,6 +134,11 @@ def _parse_offer_filters(args):
         "page":         page,
         "per_page":     per_page,
     }
+
+
+@app.errorhandler(FilterError)
+def _handle_filter_error(exc):
+    return jsonify({"error": str(exc)}), 400
 
 
 def _build_where(filters):
