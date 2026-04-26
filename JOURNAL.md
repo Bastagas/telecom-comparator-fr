@@ -296,6 +296,62 @@ S'ajoutent à `operator`, `type`, `max_price` déjà présents. Le tri par défa
 
 **Aucun JavaScript ajouté côté filtres** — toute l'interaction passe par GET params + form submit, conforme au brief master "PHP simple sans framework".
 
+### 2026-04-26 — Tâche 2A.4 — API enrichie (parité PHP ↔ API)
+
+**Objectif** — aligner l'API Flask sur les capacités du front PHP. À la fin de la tâche, un développeur tiers doit pouvoir reproduire n'importe quelle requête de `results.php` via l'API.
+
+**Endpoints livrés**
+- **Nouveau** : `GET /api/operators` — liste des 4 opérateurs (id, slug, name, website_url).
+- **Refondu** : `GET /api/offers` — filtres + pagination + envelope.
+- **Conservé tel quel** : `GET /api/offers/<id>` (le format détail Phase 1 répond déjà au besoin).
+
+**Filtres et pagination sur `/api/offers`** — strictement la même surface que `results.php` :
+| Param | Type | Défaut |
+|---|---|---|
+| `operator` | slug | — |
+| `type` | enum | — |
+| `max_price` | float > 0 | — |
+| `min_download` | int > 0 (Mbps) | — |
+| `has_promo` | `1` | false |
+| `sort` | whitelist score / price_asc / price_desc | `score` |
+| `page` | int ≥ 1 | 1 |
+| `per_page` | int [1, 100] | 20 |
+
+**Réponse en envelope structurée** :
+```json
+{
+  "data": [ … ],
+  "pagination": { "page": 1, "per_page": 20, "total": 9, "total_pages": 1 },
+  "filters_applied": { "operator": null, "type": null, ... }
+}
+```
+
+`filters_applied` reflète exactement ce que l'API a interprété — utile pour un client qui veut vérifier que ses params ont été pris en compte ou logger ce qui a été appliqué.
+
+**Validation stricte des params (400 JSON)**
+- Architecture : exception `FilterError(ValueError)` levée par `_parse_offer_filters` + `@app.errorhandler(FilterError)` qui renvoie systématiquement `{"error": "..."}` en 400.
+- Couvre : operator inconnu en BDD, type hors whitelist, max_price/min_download non numériques ou ≤ 0, sort hors whitelist, page < 1, per_page hors [1, 100].
+- Messages d'erreur explicites incluant la valeur reçue (ex : `"sort must be one of ['price_asc', 'price_desc', 'score'] (got 'foo')"`).
+
+**Sécurité SQL**
+- WHERE construit en liste + `" AND ".join(...)`, bindings paramétrés `%(name)s` pour tous les params utilisateur (pas de concaténation).
+- ORDER BY validé par whitelist Python (les 3 valeurs autorisées) avant injection.
+- Pas de mode `cursor.execute(format_string)` — on passe toujours params + dict.
+
+**Tests curl validés (7 scénarios)**
+1. `/api/operators` → 4 opérateurs ✅
+2. `/api/offers` → 9 offres, pagination total=9 total_pages=1 ✅
+3. `/api/offers?operator=free` → 1 offre Free Pop ✅
+4. `/api/offers?max_price=40&sort=price_asc&per_page=2` → page 1 (Bbox Fit, SFR Power), pagination total=3 total_pages=2 ✅
+5. `/api/offers?page=2&per_page=2&max_price=40&sort=price_asc` → page 2 (Free Pop), pagination page=2 ✅
+6. `/api/offers?operator=inconnu` → HTTP 400 + `{"error": "Unknown operator: inconnu"}` ✅
+7. `/api/offers?per_page=200` → HTTP 400 + `{"error": "per_page must be between 1 and 100"}` ✅
+
+**Réservation Phase 2B**
+- `GET /api/coverage?code_insee=XXXXX&operator=Y` (couverture mobile + fibre par commune × opérateur).
+- `GET /api/communes/search?q=Mont` (autocomplete commune par nom/code postal).
+- L'architecture du parsing/validation actuel sera factorisée si nécessaire (helpers `_parse_*` réutilisables).
+
 ---
 
 ## Phase 1 — Walking skeleton
