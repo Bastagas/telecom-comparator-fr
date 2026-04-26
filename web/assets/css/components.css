@@ -190,6 +190,27 @@
 .btn-primary:active { transform: scale(0.98); }
 .btn-primary:focus-visible { box-shadow: var(--ring-focus); outline: none; }
 
+/* Variante ghost — actions secondaires (retour, lien externe discret) */
+.btn-ghost {
+  height: 36px;
+  padding: 0 var(--sp-3);
+  background: transparent;
+  color: var(--ink-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  font-family: inherit;
+  font-weight: 500;
+  font-size: 0.875rem;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  transition: background 150ms ease-out, border-color 150ms ease-out;
+}
+.btn-ghost:hover { background: var(--bg); border-color: var(--border-h); }
+.btn-ghost:focus-visible { box-shadow: var(--ring-focus); outline: none; }
+
 /* ─────────────────────────────────────────────
    Pastille acide — variante kicker (hero home)
    ─────────────────────────────────────────── */
@@ -251,3 +272,70 @@
 .segmented input[type="radio"]:focus-visible + label {
   box-shadow: var(--ring-focus);
 }
+
+/* ─────────────────────────────────────────────
+   Logo opérateur (hero offer.php)
+   ─────────────────────────────────────────── */
+.op-logo {
+  width: 56px;
+  height: 56px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: var(--ink-3);
+  flex-shrink: 0;
+}
+
+/* ─────────────────────────────────────────────
+   Table specs (offer.php)
+   ─────────────────────────────────────────── */
+.specs {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.specs__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.95rem;
+}
+.specs__row:last-child { border-bottom: none; }
+.specs__label { color: var(--ink-3); font-weight: 500; }
+.specs__value { color: var(--ink); font-weight: 500; }
+
+/* ─────────────────────────────────────────────
+   État options vide + placeholder Phase 2
+   ─────────────────────────────────────────── */
+.options-empty,
+.phase2-placeholder {
+  border-radius: var(--r-md);
+  padding: var(--sp-4) var(--sp-6);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.options-empty {
+  background: var(--bg);
+  border: 1px dashed var(--border-h);
+  color: var(--ink-3);
+  text-align: center;
+}
+.phase2-placeholder {
+  background: var(--teal-bg);
+  border: 1px solid rgba(15,118,110,0.15);
+  color: var(--teal-h);
+}
+.phase2-placeholder strong { color: var(--teal-h); font-weight: 600; }
+.phase2-placeholder ul {
+  margin: var(--sp-2) 0 0;
+  padding-left: var(--sp-6);
+}
+.phase2-placeholder li + li { margin-top: 2px; }
