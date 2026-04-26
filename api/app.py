@@ -333,6 +333,17 @@ def get_offer(offer_id: int):
             (offer_id,),
         )
         options = cursor.fetchall()
+
+        cursor.execute(
+            """
+            SELECT monthly_price, captured_at, is_simulated
+            FROM prices_history
+            WHERE offer_id = %s
+            ORDER BY captured_at ASC
+            """,
+            (offer_id,),
+        )
+        price_history_rows = cursor.fetchall()
     finally:
         conn.close()
 
@@ -366,6 +377,14 @@ def get_offer(offer_id: int):
         "source_url": offer["source_url"],
         "score": _to_float(offer["score"]),
         "last_scraped_at": offer["last_scraped_at"].isoformat() if offer["last_scraped_at"] else None,
+        "price_history": [
+            {
+                "price": _to_float(r["monthly_price"]),
+                "captured_at": r["captured_at"].isoformat() if r["captured_at"] else None,
+                "is_simulated": bool(r["is_simulated"]),
+            }
+            for r in price_history_rows
+        ],
     }
     return jsonify(response)
 
