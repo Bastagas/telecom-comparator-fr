@@ -19,6 +19,7 @@ from scraper.db import get_connection
 from scraper.operators.base import BaseScraper
 from scraper.operators.bouygues import BouyguesScraper
 from scraper.operators.free import FreeScraper
+from scraper.operators.orange import OrangeScraper
 from scraper.operators.sfr import SfrScraper
 from scraper.scoring import recalculate_all_scores
 
@@ -28,7 +29,7 @@ OPERATORS: list[type[BaseScraper]] = [
     FreeScraper,
     SfrScraper,
     BouyguesScraper,
-    # Orange ajouté en 2A.7
+    OrangeScraper,
 ]
 
 
