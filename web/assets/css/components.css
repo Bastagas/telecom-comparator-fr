@@ -133,6 +133,12 @@
 /* ─────────────────────────────────────────────
    Score
    ─────────────────────────────────────────── */
+/* Pousse le CTA en bas pour aligner les boutons d'une même rangée même
+   quand certaines cartes n'ont pas de bloc promo. */
+.offer-card > .btn-primary {
+  margin-top: auto;
+}
+
 .offer-card__score {
   display: flex;
   flex-direction: column;
