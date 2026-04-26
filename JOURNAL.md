@@ -143,6 +143,34 @@ Détail :
 
 **Observation calibrage** — SFR Power et Premium ont le même score (formule équilibrant prix bas/débit faible vs prix haut/débit élevé). Recalibrage prévu Phase 2B avec ajout de la 7e variable ARCEP.
 
+### 2026-04-26 — Tâche 2A.6 — Scraper Bouygues
+
+**Stratégie d'extraction validée** — Bouygues n'expose pas de JSON-LD Product (uniquement un BreadcrumbList comme SFR) ni de microdata. **Mais** un script Next.js inline (~178 KB, identifié par la cooccurrence des champs `downRates` et `rangeNg`) contient un **store complet** des offres FAI avec tous les champs structurés requis : `name`, `categories`, `technology`, `downRates`, `upRates`, `details.price.{initial, forever, final}`, `discounts[].duration`, `obligation`, `obligationLabel`. Extraction **100 % dynamique, zéro hardcoding** — vrai progrès vs SFR.
+
+**3 offres Bouygues fibre upsertées**
+| Offre | `monthly_price` | `promo_price` (durée) | Engagement | ↓ / ↑ Mbps | Wi-Fi |
+|---|:-:|:-:|:-:|:-:|:-:|
+| Bbox Fit | 34,99 € | 27,99 € (12 mois) | 12 mois | 1000 / 700 | Wi-Fi 6 |
+| Bbox Must | 40,99 € | 33,99 € (12 mois) | 12 mois | 2000 / 900 | Wi-Fi 7 |
+| Bbox Ultym | 49,99 € | 42,99 € (12 mois) | 12 mois | 8000 / 8000 | Wi-Fi 7 |
+
+Variantes Banque, Gaming, Smart TV et box 4G/5G **exclues** (bundles spécialisés hors comparateur fibre core). Le store contient des doublons (même offre référencée sous plusieurs onglets) : dédup par nom avec préférence "sans engagement" si dispo, sinon engagement le plus court — règle non déclenchée ici car les 3 Bbox principales sont toutes en `monthly12` sans alternative `none`.
+
+**Impact sur les scores du panel (3 opérateurs, 6 offres)**
+| Offre | Avant Bouygues | Après Bouygues | Δ |
+|---|:-:|:-:|:-:|
+| Free Pop | 6.0 | **5.3** | -0.7 |
+| SFR Fibre Premium | 4.8 | **4.9** | +0.1 |
+| SFR Fibre Power | 4.8 | **3.5** | -1.3 |
+| Bbox Fit | — | **5.2** | nouveau |
+| Bbox Must | — | **4.5** | nouveau |
+| Bbox Ultym | — | **4.5** | nouveau |
+
+Free reste 1er du panel (sans engagement + Wi-Fi 7 + débit honnête + prix médian). Bbox Fit prend la 2e place grâce au prix le plus bas du panel — le score reflète le compromis "petit débit mais pas cher". SFR Power chute à 3.5 (engagement 12 mois + débit faible + pas de Wi-Fi 7 = pénalité multiple).
+
+**Dette technique identifiée — `setup_fee_waived` (Phase 2C)**
+Le `setup_fee` est fixé à 48 € pour les Bbox FTTH (tarif officiel) même si la promo en cours offre les frais de mise en service. Le schéma BDD actuel ne distingue pas tarif officiel vs offre commerciale. **À résoudre en Phase 2C** : ajouter une colonne `setup_fee_waived BOOLEAN DEFAULT FALSE` (ou `setup_fee_promo DECIMAL(6,2) NULL`) dans la table `offers`, avec mise à jour du scraper Bouygues pour la peupler depuis la liste des promos détectées dans le store Next.js.
+
 ---
 
 ## Phase 1 — Walking skeleton
