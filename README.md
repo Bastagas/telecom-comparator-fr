@@ -1,10 +1,12 @@
 # Comparateur d'offres télécom FR
 
-Projet de master couplant scraping Python, BDD MySQL, frontend PHP et API Flask, enrichi des données régulateur ARCEP.
+> Outil de veille qui agrège les offres commerciales des 4 opérateurs télécom français (Orange, SFR, Bouygues, Free) et les enrichit avec les données du régulateur ARCEP.
 
-## Statut
+**Pourquoi ce projet ?** Démontrer un pipeline data complet de bout en bout : scraping Python → BDD relationnelle MySQL → frontend PHP → API REST Flask. Le projet sert également de POC d'outil de veille télécom dans un contexte de conseil sectoriel.
 
-🚧 Phase 1 — Walking skeleton (en cours)
+**Statut** : 🚧 Phase 1 (walking skeleton) — pipeline complet sur 1 opérateur (Free Freebox Pop). Phase 2 à suivre : 4 opérateurs + enrichissement ARCEP par commune.
+
+**Stack** : Python 3.12 (scraping + Flask), MySQL 8 (MAMP en dev), PHP 8, Flask 3.
 
 ## Quick start
 
