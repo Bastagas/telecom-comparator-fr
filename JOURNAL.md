@@ -42,6 +42,36 @@
 
 Pas de "fallback agrégateur" (Selectra/Ariase) nécessaire en Phase 1 du scout. À garder en réserve si un site bascule sur du JS-only.
 
+### 2026-04-26 — Tâche 2A.1 — Refacto BaseScraper
+
+**Objectif** — sortir Free de son fichier procédural pour préparer SFR/Bouygues/Orange en sous-classes propres.
+
+**Choix architectural validé pendant le scout**
+- Le scout a révélé 3 patterns d'extraction distincts (Tailwind/regex pour Free, JSON-LD pour SFR/Bouygues, microdata pour Orange).
+- BaseScraper expose donc le **squelette uniquement** (fetch HTTP par défaut, orchestration, upsert, gestion d'erreurs) et **n'impose aucune méthode de parsing** : `parse_offers(html) -> list[dict]` est laissé abstrait, libre à chaque sous-classe.
+- Free reste sur son extraction regex actuelle. Le code de parsing est strictement déplacé (pas de réécriture).
+
+**Contrat de dict pour upsert_offer** — documenté dans la docstring de `scraper/operators/base.py` :
+```
+{
+  operator_slug, type, name, monthly_price, promo_price,
+  promo_duration_months, commitment_months, setup_fee,
+  source_url, score,
+  fibre_specs: {download_mbps, upload_mbps, technology, wifi_standard,
+                has_tv, tv_channels_count, has_landline} | None
+}
+```
+`upsert_offer` accepte ce dict unique au lieu de l'ancienne signature `(slug, offer, fibre_specs)`. Aucun wrapper de compat conservé : on est seul consommateur.
+
+**Gestion d'erreur** — `BaseScraper.run()` enveloppe fetch + parse + upsert dans des try/except et logge les exceptions. Un opérateur qui échoue retourne 0 offre upsertée mais ne casse pas l'itération sur les autres opérateurs dans `pipeline.py`.
+
+**Pipeline** — `OPERATORS: list[type[BaseScraper]] = [FreeScraper]` (extensible 2A.5/6/7 par simple `import` + `append`). Code de retour = nombre d'opérateurs sans aucune offre upsertée (0 = green).
+
+**Vérif idempotence + non-régression**
+- Avant refacto : 1 ligne Free, prix 39,99/29,99 €, 5000/900 Mbps, FTTH Wi-Fi 7.
+- Après refacto + 1 run pipeline : strictement identique (même `id=1`, même prix, mêmes débits).
+- `last_scraped_at` mis à jour, `first_seen_at` figé : la UNIQUE KEY fait toujours son travail.
+
 ---
 
 ## Phase 1 — Walking skeleton
