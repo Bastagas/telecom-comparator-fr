@@ -139,6 +139,10 @@ Détail :
 - Pas de promo extraite (la page affiche un "29,99€ Sans engagement" en hero, mais sans rattachement explicite à une offre nommée — non scrapable proprement sans BS4 + sélecteur précis, reporté Phase 2C).
 - Mapping Box → débits codé en dur. Les fixtures HTML versionnées et tests unitaires (Phase 2C) sécuriseront ce point.
 
+**Dette technique identifiée** — KNOWN_OFFERS hardcode les débits. À remplacer par un parsing dynamique du HTML en Phase 2C.
+
+**Observation calibrage** — SFR Power et Premium ont le même score (formule équilibrant prix bas/débit faible vs prix haut/débit élevé). Recalibrage prévu Phase 2B avec ajout de la 7e variable ARCEP.
+
 ---
 
 ## Phase 1 — Walking skeleton

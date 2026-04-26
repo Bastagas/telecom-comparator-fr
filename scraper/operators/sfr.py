@@ -1,5 +1,11 @@
 """Scraper SFR — fibre uniquement (Phase 2A).
 
+⚠️  DETTE TECHNIQUE Phase 2C
+   La constante `KNOWN_OFFERS` plus bas hardcode le mapping Box → débits/Wi-Fi.
+   À remplacer par un parsing dynamique des paragraphes "débit théorique"
+   du HTML SFR en Phase 2C, avec fixtures HTML versionnées et tests unitaires
+   pour sécuriser les évolutions de la page.
+
 Stratégie d'extraction
 ----------------------
 Le scout 2A.0 a montré que la page sfr.fr/offre-internet/ n'expose qu'un
