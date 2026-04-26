@@ -138,6 +138,23 @@ $query_params = [
     'sort'         => $sort_key !== 'score' ? $sort_key : '',
 ];
 
+// Compte les filtres actifs (pour décider d'afficher le bouton "Réinitialiser")
+$active_filters_count = 0;
+foreach (['operator', 'type'] as $k) {
+    if ($filters[$k] !== '' && $filters[$k] !== 'all') $active_filters_count++;
+}
+foreach (['max_price', 'min_download'] as $k) {
+    if ($filters[$k] !== '') $active_filters_count++;
+}
+if ($filters['has_promo']) $active_filters_count++;
+if ($sort_key !== 'score') $active_filters_count++;
+
+$sort_labels = [
+    'score'      => 'Score',
+    'price_asc'  => 'Prix croissant',
+    'price_desc' => 'Prix décroissant',
+];
+
 $pageTitle = 'Comparateur télécom FR — Résultats';
 require __DIR__ . '/partials/header.php';
 ?>
@@ -210,8 +227,17 @@ require __DIR__ . '/partials/header.php';
         </div>
     </form>
 
-    <div class="results-meta">
-        <span class="t-caption"><?= $total ?> résultat<?= $total > 1 ? 's' : '' ?></span>
+    <div class="results-header">
+        <div class="results-header__count">
+            <strong><?= $total ?></strong>
+            <span>résultat<?= $total > 1 ? 's' : '' ?></span>
+            <?php if ($active_filters_count > 0): ?>
+                <a href="results.php" class="results-header__reset">Réinitialiser les filtres</a>
+            <?php endif; ?>
+        </div>
+        <span class="results-header__sort-active">
+            Trié par <strong><?= e($sort_labels[$sort_key]) ?></strong>
+        </span>
     </div>
 
     <?php if ($total === 0): ?>

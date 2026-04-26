@@ -70,12 +70,50 @@
   margin-left: auto;
 }
 
-/* Compteur résultats */
-.results-meta {
+/* En-tête de résultats — count + tri actif + reset */
+.results-header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: baseline;
+  gap: var(--sp-3);
   margin-bottom: var(--sp-4);
+}
+.results-header__count {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.results-header__count strong {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.results-header__count span {
+  color: var(--ink-3);
+  font-size: 0.875rem;
+}
+.results-header__sort-active {
+  font-size: 0.8125rem;
+  color: var(--ink-3);
+}
+.results-header__sort-active strong {
+  color: var(--ink-2);
+  font-weight: 500;
+}
+.results-header__reset {
+  font-size: 0.8125rem;
+  color: var(--teal);
+  text-decoration: none;
+  margin-left: var(--sp-3);
+  font-weight: 500;
+}
+.results-header__reset:hover { color: var(--teal-h); text-decoration: underline; }
+.results-header__reset:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+  border-radius: var(--r-sm);
 }
 
 /* Grille de cartes — responsive 1/2/3 colonnes */
