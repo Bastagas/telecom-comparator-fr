@@ -67,7 +67,7 @@ curl -i -s http://localhost:5001/api/offers/9999    # → 404 JSON
 
 ### Front PHP via MAMP
 
-L'écran 2 (`results.php`) implémente le design Direction C (cf. `00_brief/dc/`).
+3 pages PHP livrées en Phase 1, design Direction C (cf. `00_brief/dc/`).
 
 **Setup MAMP** — un symlink dans `htdocs` évite de déplacer le projet ou de
 toucher la config Apache partagée :
@@ -76,16 +76,21 @@ toucher la config Apache partagée :
 ln -s ~/dev/telecom-comparator-fr/web /Applications/MAMP/htdocs/telecom
 ```
 
-Puis dans le navigateur :
+**URLs**
 
-```
-http://localhost:8888/telecom/results.php
-```
+| Écran | URL |
+|---|---|
+| Accueil (hero + recherche + Top offres) | http://localhost:8888/telecom/index.php |
+| Liste filtrable des résultats | http://localhost:8888/telecom/results.php |
+| Détail d'une offre | http://localhost:8888/telecom/offer.php?id=1 |
+| Erreur 404 (id inconnu) | http://localhost:8888/telecom/offer.php?id=999 |
+| Erreur 400 (id manquant ou non numérique) | http://localhost:8888/telecom/offer.php |
 
-`index.php` redirige vers `results.php` (Phase 1 : pas encore d'écran d'accueil).
+**Filtres GET** sur `results.php` : `?operator=free&type=fibre&max_price=60`.
 
-**Filtres GET** (Phase 1, infrastructure prête, peu d'effet avec une seule offre) :
-`?operator=free&type=fibre&max_price=60`.
+**Architecture** — partials PHP réutilisables sous `web/partials/` :
+`header.php`, `footer.php`, `offer-card.php`. La carte d'offre est partagée
+entre l'accueil (Top offres) et la page résultats.
 
 ## Documentation
 

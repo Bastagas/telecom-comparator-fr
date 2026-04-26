@@ -67,3 +67,29 @@
 **Limitations**
 - 1 seule offre Phase 1, donc filtres testés en infra uniquement. Le tri "score DESC" met les NULL en queue (`ORDER BY (score IS NULL), score DESC`).
 - Pas d'écran offer.php : le bouton "Voir le détail" pointera vers une 404 jusqu'à la Tâche 1.5 / Phase 2.
+
+### 2026-04-26 — Tâche 1.5 — Pages PHP complètes (DERNIÈRE de la Phase 1)
+
+**Livré**
+- **Correction préalable** sur `results.php` : suppression de la pastille "Économisez X €/mois" du header de la carte (doublon avec celle près du prix barré). Remplacement par un type badge teal-bg (`Fibre`/`Mobile`/`Bundle`) qui équilibre le kicker opérateur.
+- **3 partials PHP** (`web/partials/`) : `header.php` (chrome HTML, $pageTitle paramétrable), `footer.php` (page-footer + scripts + fermeture), `offer-card.php` (composant carte attendant `$offer` + `fmt_price`/`e`/`type_label` en scope). Refactor de `results.php` pour les utiliser, sans régression visuelle.
+- **`index.php`** (vraie page d'accueil, remplace le 302) : hero avec `acid-kicker` "Mis à jour quotidiennement", H1 large, sous-titre. Form-first (select opérateur + segmented control type + input prix max + CTA "Rechercher" → redirige vers `results.php`). Section "Top offres du moment" (LIMIT 3 par score DESC) qui réutilise le partial offer-card.
+- **`offer.php?id=X`** avec 3 cas couverts :
+  - **200** : barre retour + référence `offer/<id>` mono, hero op-logo 56×56 (placeholder lettrine) + nom + badges, bloc prix volumineux, table specs 2 colonnes (débits, technologie, WiFi, TV, téléphone), bloc options (état vide explicite Phase 1), score + lien méthodologie, CTA externe `target=_blank rel=noopener noreferrer` vers `source_url`, encadré teal Phase 2 (historique + ARCEP + radar), mention dernière mise à jour.
+  - **404** : id inconnu → page d'erreur sobre + CTA retour catalogue, header `HTTP 404`.
+  - **400** : id absent ou non numérique (validé via `ctype_digit`) → message explicite + exemple, header `HTTP 400`.
+
+**Choix techniques**
+- Partials PHP plutôt qu'un mini-moteur de templates ou Twig : pas de Composer en Phase 1, le pattern `require` natif suffit pour 3 fichiers réutilisés.
+- CSS éclaté : ajouts pour partials (page-footer__col/__link) et nouveaux composants (`acid-kicker`, `segmented`, `op-logo`, `specs`, `options-empty`, `phase2-placeholder`, `detail-*`, `error-page`, `btn-ghost`) commités au plus près de leur consommateur (commit c = index, commit d = offer).
+- Page d'erreur partagée via la helper `render_error(int, string, string)` dans `offer.php`, qui inclut header/footer et `exit` proprement après le rendu.
+
+**Phase 1 — verte ✅**
+
+Le walking skeleton est maintenant complet de bout en bout :
+- **BDD MySQL** (10 tables, 4 opérateurs + 9 options seedés).
+- **Scraper Python** (Free Freebox Pop, idempotent, upsert atomique).
+- **API Flask** (2 endpoints : liste + détail avec 404, port configurable).
+- **Front PHP** (3 pages : accueil, résultats filtrables, détail avec 404/400).
+
+Pipeline démontrable bout en bout sur 1 cas concret. La Phase 2 ouvre sur l'extension à 4 opérateurs, l'enrichissement ARCEP par commune, les filtres avancés / pagination / endpoints couverture, et l'historique des prix.
