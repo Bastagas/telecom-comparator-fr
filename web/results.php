@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 require __DIR__ . '/db.php';
 
+const PER_PAGE = 6;
+
 // ─── Filtres GET ─────────────────────────────────────────────────────
 $filters = [
     'operator'     => $_GET['operator']     ?? '',
@@ -54,7 +56,26 @@ $sort_options = [
 $sort_key = isset($sort_options[$filters['sort']]) ? $filters['sort'] : 'score';
 $order_by = $sort_options[$sort_key];
 
-// ─── Query SQL ───────────────────────────────────────────────────────
+// ─── Pagination — COUNT total avant LIMIT/OFFSET ─────────────────────
+$page = max(1, (int) ($_GET['page'] ?? 1));
+
+$pdo = get_pdo();
+$count_sql = "
+    SELECT COUNT(*)
+    FROM offers o
+    JOIN operators op ON op.id = o.operator_id
+    LEFT JOIN fibre_specs fs ON fs.offer_id = o.id
+    WHERE $where_sql
+";
+$count_stmt = $pdo->prepare($count_sql);
+$count_stmt->execute($params);
+$total = (int) $count_stmt->fetchColumn();
+
+$total_pages = max(1, (int) ceil($total / PER_PAGE));
+$page = min($page, $total_pages);
+$offset = ($page - 1) * PER_PAGE;
+
+// ─── Query SQL paginée ───────────────────────────────────────────────
 $sql = "
     SELECT
         o.id, o.type, o.name,
@@ -67,11 +88,16 @@ $sql = "
     LEFT JOIN fibre_specs fs ON fs.offer_id = o.id
     WHERE $where_sql
     $order_by
+    LIMIT :limit OFFSET :offset
 ";
 
-$pdo = get_pdo();
 $stmt = $pdo->prepare($sql);
-$stmt->execute($params);
+foreach ($params as $k => $v) {
+    $stmt->bindValue(":$k", $v);
+}
+$stmt->bindValue(':limit', PER_PAGE, PDO::PARAM_INT);
+$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$stmt->execute();
 $offers = $stmt->fetchAll();
 
 // Liste des opérateurs pour le filtre
@@ -92,6 +118,25 @@ function type_label(string $type): string {
         default  => $type,
     };
 }
+function build_query_string(array $base, array $override = []): string {
+    $merged = array_merge($base, $override);
+    $clean = [];
+    foreach ($merged as $k => $v) {
+        if ($v === '' || $v === null || $v === false) continue;
+        $clean[$k] = $v === true ? '1' : $v;
+    }
+    return http_build_query($clean);
+}
+
+// Paramètres GET à propager dans la pagination
+$query_params = [
+    'operator'     => $filters['operator'] !== 'all' ? $filters['operator'] : '',
+    'type'         => $filters['type'] !== 'all'     ? $filters['type']     : '',
+    'max_price'    => $filters['max_price'],
+    'min_download' => $filters['min_download'],
+    'has_promo'    => $filters['has_promo'] ? '1' : '',
+    'sort'         => $sort_key !== 'score' ? $sort_key : '',
+];
 
 $pageTitle = 'Comparateur télécom FR — Résultats';
 require __DIR__ . '/partials/header.php';
@@ -166,10 +211,10 @@ require __DIR__ . '/partials/header.php';
     </form>
 
     <div class="results-meta">
-        <span class="t-caption"><?= count($offers) ?> résultat<?= count($offers)>1?'s':'' ?></span>
+        <span class="t-caption"><?= $total ?> résultat<?= $total > 1 ? 's' : '' ?></span>
     </div>
 
-    <?php if (empty($offers)): ?>
+    <?php if ($total === 0): ?>
         <div class="empty-state">
             <p class="t-h2">Aucune offre ne correspond à vos critères</p>
             <p class="t-body">Essayez d'élargir le prix ou de retirer un filtre.</p>
@@ -178,6 +223,26 @@ require __DIR__ . '/partials/header.php';
         <section class="results-grid">
             <?php foreach ($offers as $offer): require __DIR__ . '/partials/offer-card.php'; endforeach; ?>
         </section>
+
+        <?php if ($total_pages > 1): ?>
+            <nav class="pagination" aria-label="Pagination des résultats">
+                <?php if ($page > 1): ?>
+                    <a class="pagination__btn"
+                       href="?<?= e(build_query_string($query_params, ['page' => $page - 1])) ?>">← Précédent</a>
+                <?php else: ?>
+                    <span class="pagination__btn pagination__btn--disabled" aria-disabled="true">← Précédent</span>
+                <?php endif; ?>
+
+                <span class="pagination__pages">Page <?= $page ?> / <?= $total_pages ?></span>
+
+                <?php if ($page < $total_pages): ?>
+                    <a class="pagination__btn"
+                       href="?<?= e(build_query_string($query_params, ['page' => $page + 1])) ?>">Suivant →</a>
+                <?php else: ?>
+                    <span class="pagination__btn pagination__btn--disabled" aria-disabled="true">Suivant →</span>
+                <?php endif; ?>
+            </nav>
+        <?php endif; ?>
     <?php endif; ?>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>
