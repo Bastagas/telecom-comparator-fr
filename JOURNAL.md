@@ -107,6 +107,110 @@ Le champ ARCEP est en notation scientifique française (`"1,77688663801562e+03"`
 
 ---
 
+### 2026-04-26 — Tâche 2B.1.3 — Import couverture fibre par commune
+
+**Décision d'architecture (option α)** — réutilisation du même CSV ARCEP `releve-geographique-donnees-2026-03.csv` que la 2B.1.2, déjà en cache disque. Pas de re-téléchargement (le `download_communes()` détecte le cache et le sert). Cohérent avec la philosophie walking skeleton : Phase 2B.1 = granularité **agrégée tous opérateurs** (`operator_id IS NULL`). La granularité par OI nécessiterait un fichier différent (le ZIP `2025T4-Commune` 31 MB) et est reportée en Phase 2C ou plus tard si pertinente.
+
+**Sémantique des champs ARCEP utilisés** (sondage avant codage)
+- `locaux_commune` (référentiel INSEE) : déjà importé en 2B.1.2 dans `communes.locaux_total`. Sert ici de **dénominateur**.
+- `IPE_commune` : locaux pour lesquels une **Information Préalable Enrichie** a été publiée par l'OI (délibération ARCEP 2014-1338) — signal d'intention de raccordement, **pas** une couverture effective.
+- `deploye_commune` : locaux **effectivement raccordables** au FTTH (prise posée et activable par les FAI). **Mesure officielle ARCEP** du déploiement.
+- `taux_depl_commune` : `deploye_commune / locaux_commune`, **ratio 0–1**.
+
+**Choix `deploye_commune` plutôt que `IPE_commune` pour `locaux_raccordables_ftth`** — fidélité sémantique. Le champ « locaux raccordables » du schéma matche la sémantique « déployé activable » d'ARCEP, pas le signal IPE qui peut englober des locaux à venir. Cohérence interne BDD : `taux_fibre × locaux_total / 100 ≈ locaux_raccordables_ftth` (à tolérance ARCEP près — voir ci-dessous).
+
+**Cross-check de cohérence** (sondage)
+- `IPE > locaux_commune` sur **6 097 communes (17 %)**
+- `deploye > IPE` sur **7 053 communes (20 %)**
+- Sur les **12 532 communes 100 % déployées**, seules **45 % ont `deploye == IPE`**
+
+Ces écarts proviennent de la divergence des sources (référentiel INSEE vs déclarations OI), et sont reconnus par ARCEP. Conséquence pratique : pas d'invariant arithmétique strict possible entre les 3 colonnes — chaque mesure doit être lue comme indépendante.
+
+**Format `taux_fibre`** — validation empirique : `min=0, max=1, mean=0.936`. Format ratio 0–1 confirmé. Conversion `round(ratio × 100, 2)` pour stockage en `DECIMAL(5,2)` (% sur 2 décimales).
+
+**Cas particuliers**
+- **45 communes avec `deploye_commune = NA`** (typiquement Paris ZTD historique pré-suivi ARCEP). Stratégie : insérer la ligne avec `locaux_raccordables_ftth = NULL` mais conserver `taux_fibre` (numérique pour 100 % des lignes). Pas de skip — la commune reste référencée avec son taux.
+- **0 ligne skip** au final (aucune commune sans aucune donnée fibre).
+- **642 communes à 0 %** (zones blanches FTTH) — gardées en BDD car c'est une info utile.
+
+**Pre-flight check** — refuse de tourner si `communes` a moins de 34 000 lignes (pour éviter les FK-fail à grande échelle). Message d'erreur explicite : *« Run `python -m scraper.loader.communes` first »*. La discipline d'ordre d'import est documentée dans le code lui-même.
+
+**Idempotence vérifiée**
+- 1ᵉʳ run : 34 919 inserted, 0 updated, 0 errors. Durée ~3 s (cache hit + insertion par batch de 1 000).
+- 2ᵉ run : 0 inserted, 34 919 updated, 0 errors. UPSERT via `INSERT ... ON DUPLICATE KEY UPDATE` sur la UNIQUE `(code_insee, operator_id_key, source_millesime)`. La generated column `operator_id_key = IFNULL(operator_id, 0) = 0` (lignes agrégées) fait son travail sans collision.
+
+**Champs laissés NULL pour 2B.1.3** — `locaux_raccordables_thd` et `locaux_eligibles_total`. Le CSV `releve-geographique` ne distingue pas FTTH pur / DOCSIS / autres ≥ 100 Mb/s. Ces champs seront comblés en 2C avec un fichier ARCEP complémentaire (probablement le ZIP `2025T4-Commune` qui détaille par techno) si l'arbitrage métier le justifie.
+
+**Insight 1 — Top 10 communes les moins fibrées (taux > 0)**
+```
+Saint-Gervais-les-Bains       (74 — Auvergne-Rhône-Alpes)        0.02 %
+Sainte-Marie-aux-Mines        (68 — Grand Est)                   0.06 %
+Clouange                      (57 — Grand Est)                   0.08 %
+Pleslin-Trigavou              (22 — Bretagne)                    0.08 %
+Basse-Pointe                  (972 — Martinique)                 0.11 %
+Monterfil                     (35 — Bretagne)                    0.16 %
+Plouguin                      (29 — Bretagne)                    0.17 %
+Plounéour-Brignogan-plages    (29 — Bretagne)                    0.19 %
+Saint-Martin-sur-Oust         (56 — Bretagne)                    0.19 %
+Saint-Pabu                    (29 — Bretagne)                    0.20 %
+```
+**Bretagne sur-représentée** (6 sur 10) — corrobore le retard breton sur le déploiement FTTH largement documenté dans la presse spé télécom (2024-2026).
+
+**Insight 2 — Classement régional du déploiement fibre (taux moyen pondéré par commune)**
+```
+Centre-Val de Loire         98.86 %     (1754 communes)
+Pays de la Loire            98.55 %     (1228 communes)
+Hauts-de-France             98.48 %     (3782 communes)
+Bourgogne-Franche-Comté     97.54 %     (3685 communes)
+Nouvelle-Aquitaine          97.10 %     (4293 communes)
+Île-de-France               96.89 %     (1285 communes)
+La Réunion                  96.65 %     (24 communes)
+Normandie                   95.89 %     (2644 communes)
+Grand Est                   95.65 %     (5115 communes)
+Guadeloupe                  95.59 %     (32 communes)
+Provence-Alpes-Côte d'Azur  94.97 %     (961 communes)
+Occitanie                   94.42 %     (4446 communes)
+Corse                       91.57 %     (360 communes)
+Saint-Barthélemy            82.22 %     (1 commune)
+Bretagne                    78.78 %     (1202 communes)
+Auvergne-Rhône-Alpes        77.51 %     (4033 communes)
+Saint-Martin                66.28 %     (1 commune)
+Guyane                      49.49 %     (22 communes)
+Martinique                  40.09 %     (34 communes)
+Mayotte                      3.85 %     (17 communes)
+```
+**Bretagne et Auvergne-Rhône-Alpes en queue de peloton métropolitain** (≈78 % vs ≈98 % pour les meilleures). **Mayotte à 3.85 %** — fracture ultramarine massive. Centre-Val de Loire / Pays de la Loire / Hauts-de-France en tête, cohérent avec la cartographie ARCEP.
+
+**Insight 3 — Distribution par bucket (fracture territoriale T4 2025)**
+```
+100 % (totalement fibré)      12 313 communes    35.3 %
+90-99 %                        17 989 communes    51.5 %
+75-89 %                         2 741 communes     7.8 %
+50-74 %                           794 communes     2.3 %
+25-49 %                           179 communes     0.5 %
+ 1-24 %                           261 communes     0.7 %
+ 0 % (zone blanche)               642 communes     1.8 %
+```
+**86.8 % des communes ≥ 90 % de couverture FTTH** — la France est massivement fibrée à T4 2025. **642 zones blanches restantes (1.8 %)** — le « dernier kilomètre » du Plan France Très Haut Débit.
+
+**Architecture résultante**
+
+```
+scraper/
+├── operators/      # scraping commercial (Free, SFR, Bouygues, Orange)
+└── loader/         # ingestion régulateur (ARCEP)
+    ├── communes.py        (référentiel INSEE)
+    └── coverage_fibre.py  (couverture FTTH par commune)
+```
+
+Les loaders partagent : URL constante (`ARCEP_DATASET_URL`), millésime (`ARCEP_MILLESIME = '2025_T4'`), helper de download avec cache (`download_communes`). Pas de duplication.
+
+**Prochaines tâches**
+- **2B.1.4** : endpoints API `/api/communes/search?q=…` (autocomplete) et `/api/coverage?commune=<insee>` (lecture coverage_fibre + jointure communes).
+- **2B.1.5** : intégration front (page commune dédiée, ou bandeau "couverture FTTH dans votre commune" sur `offer.php`).
+
+---
+
 ## Phase 2A — Extension multi-opérateurs
 
 ### 2026-04-26 — Tâche 2A.0 — Scout sites opérateurs
