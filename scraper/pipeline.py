@@ -18,13 +18,15 @@ import sys
 from scraper.db import get_connection
 from scraper.operators.base import BaseScraper
 from scraper.operators.free import FreeScraper
+from scraper.operators.sfr import SfrScraper
 from scraper.scoring import recalculate_all_scores
 
 logger = logging.getLogger(__name__)
 
 OPERATORS: list[type[BaseScraper]] = [
     FreeScraper,
-    # SFR, Bouygues, Orange ajoutés en 2A.5/6/7
+    SfrScraper,
+    # Bouygues, Orange ajoutés en 2A.6/7
 ]
 
 
