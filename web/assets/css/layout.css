@@ -1,0 +1,160 @@
+/* Direction C — layout & page chrome (results.php) */
+
+.page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: var(--sp-12) var(--sp-6) var(--sp-16);
+}
+
+.page-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-12);
+}
+.page-header__kicker { color: var(--ink-3); }
+.page-header__title { margin: 0; }
+.page-header__sub {
+  color: var(--ink-2);
+  margin: 0;
+  max-width: 60ch;
+}
+
+/* Filtres : alignés horizontalement, regroupés dans une bande discrète */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--sp-4);
+  padding: var(--sp-4) var(--sp-6);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  margin-bottom: var(--sp-8);
+}
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 160px;
+}
+.filter-field label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.filter-field select,
+.filter-field input {
+  height: 40px;
+  padding: 0 var(--sp-3);
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  transition: border-color 150ms ease-out, box-shadow 150ms ease-out;
+}
+.filter-field select:focus-visible,
+.filter-field input:focus-visible {
+  outline: none;
+  border-color: var(--teal);
+  box-shadow: var(--ring-focus);
+}
+
+.filters__actions {
+  display: flex;
+  gap: var(--sp-2);
+  margin-left: auto;
+}
+
+/* Compteur résultats */
+.results-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--sp-4);
+}
+
+/* Grille de cartes */
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: var(--sp-6);
+}
+
+/* État vide */
+.empty-state {
+  background: var(--surface);
+  border: 1px dashed var(--border-h);
+  border-radius: var(--r-lg);
+  padding: var(--sp-12) var(--sp-6);
+  text-align: center;
+  color: var(--ink-3);
+}
+
+/* Footer */
+.page-footer {
+  margin-top: var(--sp-16);
+  padding-top: var(--sp-6);
+  border-top: 1px solid var(--border);
+  color: var(--ink-3);
+  font-size: 0.8125rem;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+
+/* ─────────────────────────────────────────────
+   Animations — entrée carte au scroll (#2)
+   Pulse pastille (#4) + score-bar fill (#5)
+   sont armées par animations.js (classes is-*)
+   ─────────────────────────────────────────── */
+
+.offer-card {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.offer-card.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 400ms cubic-bezier(0.16, 1, 0.3, 1),
+              transform 400ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Pulse pastille : keyframe armée par .is-popped sur .acid-pill */
+@keyframes acid-pop {
+  0%   { transform: scale(0.85); opacity: 0; }
+  60%  { transform: scale(1.04); opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+.acid-pill.is-popped {
+  animation: acid-pop 380ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Score-bar fill : largeur animée par animations.js */
+.score-bar > .fill.is-filled {
+  transition: width 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Reduced motion : on coupe #2, #4, #5 (gardes #1 et #3, feedback essentiel) */
+@media (prefers-reduced-motion: reduce) {
+  .offer-card,
+  .offer-card.is-visible {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .acid-pill.is-popped {
+    animation: none;
+  }
+  .score-bar > .fill.is-filled {
+    transition: none;
+  }
+  .offer-card {
+    transition: border-color 0s, box-shadow 0s, transform 0s;
+  }
+}
