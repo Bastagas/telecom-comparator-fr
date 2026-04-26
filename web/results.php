@@ -11,10 +11,48 @@ require __DIR__ . '/db.php';
 
 // ─── Filtres GET ─────────────────────────────────────────────────────
 $filters = [
-    'operator'  => $_GET['operator']  ?? '',
-    'type'      => $_GET['type']      ?? '',
-    'max_price' => $_GET['max_price'] ?? '',
+    'operator'     => $_GET['operator']     ?? '',
+    'type'         => $_GET['type']         ?? '',
+    'max_price'    => $_GET['max_price']    ?? '',
+    'min_download' => $_GET['min_download'] ?? '',
+    'has_promo'    => isset($_GET['has_promo']) && $_GET['has_promo'] === '1',
+    'sort'         => $_GET['sort']         ?? 'score',
 ];
+
+// ─── Construction du WHERE (bindings PDO) ────────────────────────────
+$where = ['o.is_active = TRUE'];
+$params = [];
+
+if ($filters['operator'] !== '' && $filters['operator'] !== 'all') {
+    $where[] = 'op.slug = :operator';
+    $params['operator'] = $filters['operator'];
+}
+if ($filters['type'] !== '' && $filters['type'] !== 'all') {
+    $where[] = 'o.type = :type';
+    $params['type'] = $filters['type'];
+}
+if ($filters['max_price'] !== '' && is_numeric($filters['max_price'])) {
+    $where[] = 'o.monthly_price <= :max_price';
+    $params['max_price'] = (float) $filters['max_price'];
+}
+if ($filters['min_download'] !== '' && is_numeric($filters['min_download'])) {
+    $where[] = 'fs.download_mbps >= :min_download';
+    $params['min_download'] = (int) $filters['min_download'];
+}
+if ($filters['has_promo']) {
+    $where[] = 'o.promo_price IS NOT NULL';
+}
+
+$where_sql = implode(' AND ', $where);
+
+// ─── Tri (whitelist pour empêcher l'injection) ──────────────────────
+$sort_options = [
+    'score'      => 'ORDER BY (o.score IS NULL), o.score DESC, o.monthly_price ASC',
+    'price_asc'  => 'ORDER BY o.monthly_price ASC',
+    'price_desc' => 'ORDER BY o.monthly_price DESC',
+];
+$sort_key = isset($sort_options[$filters['sort']]) ? $filters['sort'] : 'score';
+$order_by = $sort_options[$sort_key];
 
 // ─── Query SQL ───────────────────────────────────────────────────────
 $sql = "
@@ -27,24 +65,9 @@ $sql = "
     FROM offers o
     JOIN operators op ON op.id = o.operator_id
     LEFT JOIN fibre_specs fs ON fs.offer_id = o.id
-    WHERE o.is_active = TRUE
+    WHERE $where_sql
+    $order_by
 ";
-$params = [];
-
-if ($filters['operator'] !== '' && $filters['operator'] !== 'all') {
-    $sql .= ' AND op.slug = :operator';
-    $params['operator'] = $filters['operator'];
-}
-if ($filters['type'] !== '' && $filters['type'] !== 'all') {
-    $sql .= ' AND o.type = :type';
-    $params['type'] = $filters['type'];
-}
-if ($filters['max_price'] !== '' && is_numeric($filters['max_price'])) {
-    $sql .= ' AND o.monthly_price <= :max_price';
-    $params['max_price'] = (float) $filters['max_price'];
-}
-
-$sql .= ' ORDER BY (o.score IS NULL), o.score DESC, o.monthly_price ASC';
 
 $pdo = get_pdo();
 $stmt = $pdo->prepare($sql);
@@ -112,6 +135,29 @@ require __DIR__ . '/partials/header.php';
             <label for="f-max">Prix max (€/mois)</label>
             <input id="f-max" type="number" name="max_price" min="0" step="1"
                    value="<?= e((string)$filters['max_price']) ?>" placeholder="60">
+        </div>
+
+        <div class="filter-field">
+            <label for="f-min-down">Débit min ↓ (Mbps)</label>
+            <input id="f-min-down" type="number" name="min_download" min="0" step="500"
+                   value="<?= e((string)$filters['min_download']) ?>" placeholder="1000">
+        </div>
+
+        <div class="filter-field">
+            <label for="f-sort">Trier par</label>
+            <select id="f-sort" name="sort">
+                <option value="score"      <?= $sort_key==='score'?'selected':'' ?>>Score (recommandé)</option>
+                <option value="price_asc"  <?= $sort_key==='price_asc'?'selected':'' ?>>Prix croissant</option>
+                <option value="price_desc" <?= $sort_key==='price_desc'?'selected':'' ?>>Prix décroissant</option>
+            </select>
+        </div>
+
+        <div class="filter-field filter-field--checkbox">
+            <label class="checkbox-label">
+                <input type="checkbox" name="has_promo" value="1"
+                       <?= $filters['has_promo'] ? 'checked' : '' ?>>
+                <span>Avec promo</span>
+            </label>
         </div>
 
         <div class="filters__actions">

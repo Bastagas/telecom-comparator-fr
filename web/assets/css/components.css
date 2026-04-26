@@ -274,6 +274,30 @@
 }
 
 /* ─────────────────────────────────────────────
+   Checkbox compacte (filtre has_promo)
+   ─────────────────────────────────────────── */
+.filter-field--checkbox {
+  align-self: flex-end;
+  padding-bottom: 8px;
+}
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.95rem;
+  color: var(--ink);
+  height: 40px;
+}
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--teal);
+}
+
+/* ─────────────────────────────────────────────
    Logo opérateur (hero offer.php)
    ─────────────────────────────────────────── */
 .op-logo {
