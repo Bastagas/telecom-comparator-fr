@@ -15,8 +15,10 @@ from __future__ import annotations
 import logging
 import sys
 
+from scraper.db import get_connection
 from scraper.operators.base import BaseScraper
 from scraper.operators.free import FreeScraper
+from scraper.scoring import recalculate_all_scores
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +37,16 @@ def run() -> int:
         total_offers += upserted
         if upserted == 0:
             failures += 1
+
+    # Score composite recalculé une fois sur l'ensemble des offres actives.
+    # Les stats de marché (min/max) dépendent de toutes les offres : on ne
+    # peut donc pas calculer le score offre par offre dans BaseScraper.run.
+    conn = get_connection()
+    try:
+        scored = recalculate_all_scores(conn)
+        logger.info("Recalculated scores for %d offer%s", scored, "s" if scored > 1 else "")
+    finally:
+        conn.close()
 
     logger.info(
         "Pipeline complete: %d operator%s run, %d offer%s upserted, %d failure%s",

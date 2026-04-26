@@ -149,7 +149,7 @@ def recalculate_all_scores(conn) -> int:
 
     # Une seule requête : on agrège la somme pondérée des options incluses
     # par offre via un CASE sur la catégorie.
-    weights_sql = ", ".join(
+    weights_sql = " ".join(
         f"WHEN opt.category = '{cat}' THEN {weight}"
         for cat, weight in OPTION_CATEGORY_WEIGHTS.items()
     )
