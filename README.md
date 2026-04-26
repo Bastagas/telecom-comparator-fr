@@ -1,12 +1,31 @@
 # Comparateur d'offres télécom FR
 
-> Outil de veille qui agrège les offres commerciales des 4 opérateurs télécom français (Orange, SFR, Bouygues, Free) et les enrichit avec les données du régulateur ARCEP.
+> Outil de veille qui agrège les offres commerciales des 4 opérateurs télécom français (Orange, SFR, Bouygues, Free) en fibre, calcule un score composite multidimensionnel par offre, et expose les données via une API REST + un site web responsive. Phase 2B prévue : enrichissement avec les données régulateur ARCEP (couverture mobile et fibre par commune).
 
 **Pourquoi ce projet ?** Démontrer un pipeline data complet de bout en bout : scraping Python → BDD relationnelle MySQL → frontend PHP → API REST Flask. Le projet sert également de POC d'outil de veille télécom dans un contexte de conseil sectoriel.
 
-**Statut** : 🚧 Phase 1 (walking skeleton) — pipeline complet sur 1 opérateur (Free Freebox Pop). Phase 2 à suivre : 4 opérateurs + enrichissement ARCEP par commune.
+**Statut** : 🟢 Phase 1 close · 🟢 Phase 2A close · 🟡 Phase 2B à venir
 
-**Stack** : Python 3.12 (scraping + Flask), MySQL 8 (MAMP en dev), PHP 8, Flask 3.
+**Stack** : Python 3.12 (scraping + Flask), MySQL 8 (MAMP en dev), PHP 8, Flask 3, Chart.js 4.
+
+## Captures
+
+**Liste des offres** — filtres prix max + avec promo, tri prix croissant, 4 résultats sur 9.
+![Page Résultats avec filtres actifs](docs/screenshots/results.png)
+
+**Fiche détail** — Freebox Pop : prix promo / prix barré, graphique d'évolution Chart.js (30 jours), spécifications techniques, score qualité/prix.
+![Détail d'une offre avec graphique d'évolution](docs/screenshots/offer-detail.png)
+
+**Méthodologie** — formule du score composite (6 variables pondérées), sources, limites assumées.
+![Page Méthodologie & sources](docs/screenshots/about.png)
+
+## Roadmap
+
+- ✅ **Phase 1** — Walking skeleton (1 opérateur, BDD + API + 3 pages, tagué `v0.1.0-phase1`)
+- ✅ **Phase 2A** — Extension multi-opérateurs (4 opérateurs, scoring, filtres, historique des prix, page méthodologie, tagué `v0.2.0a-phase2a`)
+- 🟡 **Phase 2B** — Enrichissement ARCEP (couverture mobile + fibre par commune, mobile dans le scope)
+- ⚪ **Phase 2C** — Polish final (radar Chart.js, Docker compose, tests)
+- ⚪ **Phase 3** — Carte interactive + géocodage par adresse (API Adresse BAN)
 
 ## Quick start
 
@@ -99,7 +118,7 @@ curl -i -s "http://localhost:5001/api/offers?per_page=200"       # per_page must
 
 ### Front PHP via MAMP
 
-3 pages PHP livrées en Phase 1, design Direction C (cf. `00_brief/dc/`).
+4 pages PHP livrées (Phase 1 + 2A), design Direction C (cf. `00_brief/dc/`).
 
 **Setup MAMP** — un symlink dans `htdocs` évite de déplacer le projet ou de
 toucher la config Apache partagée :
@@ -117,6 +136,7 @@ ln -s ~/dev/telecom-comparator-fr/web /Applications/MAMP/htdocs/telecom
 | Détail d'une offre | http://localhost:8888/telecom/offer.php?id=1 |
 | Erreur 404 (id inconnu) | http://localhost:8888/telecom/offer.php?id=999 |
 | Erreur 400 (id manquant ou non numérique) | http://localhost:8888/telecom/offer.php |
+| Méthodologie & sources | http://localhost:8888/telecom/about.php |
 
 **Filtres GET** sur `results.php` : `?operator=free&type=fibre&max_price=60`.
 
