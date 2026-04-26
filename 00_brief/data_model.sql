@@ -195,6 +195,7 @@ CREATE TABLE prices_history (
   offer_id       INT NOT NULL,
   monthly_price  DECIMAL(6,2) NOT NULL,
   captured_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  is_simulated   BOOLEAN DEFAULT FALSE NOT NULL,    -- TRUE = données de démonstration (seed), FALSE = collecte réelle
 
   CONSTRAINT fk_ph_offer
     FOREIGN KEY (offer_id) REFERENCES offers(id) ON DELETE CASCADE,
